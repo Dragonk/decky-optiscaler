@@ -376,12 +376,19 @@ export function BasicPanel({
     }
   };
 
-  const turnFrameGenOn = () =>
-    onApply(
+  const turnFrameGenOn = () => {
+    const changes =
       automatic && plannedFg && plannedFg.input !== "nofg"
         ? enableFrameGenWith(plannedFg.input, plannedFg.output)
-        : enableFrameGenChanges(values)
-    );
+        : enableFrameGenChanges(values);
+    // Arming an input and output is not a live change: OptiScaler reads the
+    // pair once, when it attaches, and never again. The restart notice below
+    // is the honest answer to "why is nothing happening".
+    if (changes.some((item) => item.key === "FGInput" || item.key === "FGOutput")) {
+      setMethodChanged(true);
+    }
+    onApply(changes);
+  };
 
   /**
    * The one control here the running game cannot take.
@@ -534,6 +541,20 @@ export function BasicPanel({
               {liveFg ? <Pill color="#2f6b3f">ON</Pill> : <Pill color="#6b2f2f">OFF</Pill>}
               {typeof live?.fps === "number" && live.fps > 0 ? (
                 <span style={{ opacity: 0.75 }}>{live.fps.toFixed(0)} fps</span>
+              ) : null}
+              {/* Frame generation can only add frames, so a presented rate
+                  well above the rendered one is the evidence it is really
+                  interpolating -- and the same numbers staying equal are the
+                  evidence that it is not, whatever the toggle above says. */}
+              {typeof live?.base_fps === "number" &&
+              typeof live?.total_fps === "number" &&
+              live.base_fps > 0 &&
+              live.total_fps > live.base_fps * 1.4 ? (
+                <span style={{ opacity: 0.75 }}>
+                  {" "}
+                  · {live.base_fps.toFixed(0)} rendered →{" "}
+                  {live.total_fps.toFixed(0)} presented
+                </span>
               ) : null}
             </div>
           </PanelSectionRow>

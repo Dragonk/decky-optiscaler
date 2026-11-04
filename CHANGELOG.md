@@ -3,6 +3,31 @@
 Newest first. Each release ships `Decky OptiScaler.zip` for Decky Loader's
 *Install from URL* (Developer mode), and bundles **OptiScaler 10.0.0-pre1** (nightly 2026-11-04).
 
+## [0.0.23] - 2026-11-04
+
+### Fixed
+
+- **Frame generation armed a route most games cannot feed.** Turning the
+  frame-generation toggle on with no method chosen wrote FGInput "fsrfg",
+  the input for games that already call FidelityFX frame generation
+  themselves -- in a game that never does, frame generation came up
+  "enabled" doing nothing: same frame rate, no FSR-FG watermark. The
+  default is now the Upscaler input, which takes its motion vectors from
+  OptiScaler's own upscaler and needs nothing from the game.
+- **"FSR3-FG via Nukem's" wrote an input OptiScaler does not have.** The
+  preset wrote FGInput "nukems"; the documented route is FGInput "nvngxfg"
+  with the Nukems replacement, which is what the preset writes now.
+- **Arming frame generation mid-session looked like it worked.** The input
+  and output are read once, when the game starts. Turning frame generation
+  on in a game that is already running now says so with the restart notice
+  instead of leaving the toggle looking broken.
+
+### Added
+
+- **"Upscaler (FSR FG)" frame generation method** for games without their
+  own frame generation, and a rendered-to-presented reading under the
+  in-game status whenever frame generation is actively interpolating.
+
 ## [0.0.22] - 2026-11-04
 
 ### Fixed

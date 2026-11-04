@@ -168,7 +168,8 @@ function fgPreset(
   label: string,
   description: string,
   input: string,
-  output: string
+  output: string,
+  extra: OptionChange[] = []
 ): Preset {
   return {
     id,
@@ -177,6 +178,7 @@ function fgPreset(
     changes: [
       change("FrameGen", "FGInput", input),
       change("FrameGen", "FGOutput", output),
+      ...extra,
     ],
     matches: (values) =>
       get(values, "FrameGen", "FGInput") === input &&
@@ -189,9 +191,15 @@ function fgPreset(
 // is recognisable in the in-game FG Input / FG Output combos.
 export const FG_PRESETS: Preset[] = [
   fgPreset(
+    "upscaler",
+    "Upscaler (FSR FG)",
+    "FG Input “Upscaler” into FG Output “FSR FG”. For games without their own frame generation — takes motion vectors from OptiScaler's upscaler.",
+    "upscaler", "fsrfg"
+  ),
+  fgPreset(
     "fsrfg",
     "FSR FG",
-    "FG Input “FSR 3.1 FG” into FG Output “FSR FG”. The most broadly compatible pair.",
+    "FG Input “FSR 3.1 FG” into FG Output “FSR FG”. Only for games that already call FidelityFX frame generation themselves.",
     "fsrfg", "fsrfg"
   ),
   fgPreset(
@@ -203,8 +211,9 @@ export const FG_PRESETS: Preset[] = [
   fgPreset(
     "nukems",
     "FSR3-FG via Nukem's",
-    "FG Input “Nukem's DLSSG”. Uses the game's own DLSS-FG path — only for games that have it.",
-    "nukems", "nukems"
+    "FG Input “Nvngx FG” with the Nukems replacement. Uses the game's own DLSS-FG path — only for games that have it.",
+    "nvngxfg", "nofg",
+    [change("FrameGen", "FGNvngxReplacement", "Nukems")]
   ),
   fgPreset(
     "dlssg",
@@ -437,7 +446,11 @@ export function supportsMultiplier(values: ConfigValues): boolean {
 
 /**
  * Turning frame generation on has to pick an input and an output too, or
- * OptiScaler comes up with FG "enabled" but doing nothing.
+ * OptiScaler comes up with FG "enabled" but doing nothing. The default is the
+ * upscaler input: it is the route that works for any game whose own code
+ * never calls a frame generation API, which is the game that needs this
+ * panel in the first place. The pair is read once, when the game starts --
+ * arming it mid-session is an ini write the running game will not act on.
  */
 export function enableFrameGenChanges(values: ConfigValues): OptionChange[] {
   const changes = [change("FrameGen", "Enabled", "true")];
