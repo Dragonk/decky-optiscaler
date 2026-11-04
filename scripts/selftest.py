@@ -808,6 +808,25 @@ def check_live_diagnostics():
               live.opti_log_tail(str(target)) == ["[info] Checking X for *.asi"])
         shutil.rmtree(provisional)
 
+        # The version banner OptiScaler logs first: live control mirrors the
+        # memory layout of one exact build, so which build the game runs is
+        # the question a "cannot attach" failure has to answer.
+        (target / "OptiScaler.log").write_text(
+            "[23:14:06.778075] [W] OptiScaler v10.0.0-dev (10911bcb) (20261020_174648) loaded"
+            + chr(10)
+            + "[23:14:06.778126] [W] ----------------------------------------------"
+            + chr(10)
+        )
+        banner = live.opti_banner(str(target))
+        check("the version banner is read from the log head",
+              banner is not None and banner.endswith("loaded"), banner)
+        check("the commit comes out of the banner",
+              live.banner_commit(banner) == "10911bcb",
+              live.banner_commit(banner))
+        check("the commit is None without a banner", live.banner_commit(None) is None)
+        (target / "OptiScaler.log").write_text("[info] Checking X for *.asi" + chr(10))
+        check("a log without a banner reports None", live.opti_banner(str(target)) is None)
+
         # The heartbeat is what makes staleness mean "the game is gone" rather
         # than "nobody changed a setting recently".
         check("the staleness window is short enough to track a live game",

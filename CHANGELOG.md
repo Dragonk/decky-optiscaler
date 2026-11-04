@@ -3,6 +3,23 @@
 Newest first. Each release ships `Decky OptiScaler.zip` for Decky Loader's
 *Install from URL* (Developer mode), and bundles **OptiScaler 10.0.0-pre1** (nightly 2026-11-04).
 
+## [0.0.20] - 2026-11-04
+
+### Added
+
+- **Diagnostics can be copied to the clipboard.** The log lives in a
+  scrolling panel, which made "paste it to the developer" a retyping
+  exercise; a copy button beside Show diagnostics now puts the whole thing
+  on the clipboard, with a fallback for webviews without the async
+  clipboard API.
+- **The panel now names the build that breaks live control.** OptiScaler's
+  own log starts with its version banner, and the live-control plugin
+  mirrors the memory layout of exactly one build -- so a game running any
+  other OptiScaler loads the plugin but never finds the config object, and
+  reads as "not connected" with no hint why. Show diagnostics now compares
+  the running build's commit against the one bundled here and says, in
+  plain words, that reinstalling OptiScaler from the plugin is the fix.
+
 ## [0.0.19] - 2026-11-04
 
 ### Added

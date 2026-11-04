@@ -1,6 +1,9 @@
 """Shared constants for the Decky OptiScaler plugin."""
 
 OPTISCALER_VERSION = "10.0.0-pre1"
+# The OptiScaler build the live-control memory mirror is generated against;
+# a game running any other build loads the plugin but cannot attach.
+LIVE_CONTROL_COMMIT = "5eb4bfab"
 PAYLOAD_ARCHIVE = "OptiScaler-10.0.0-pre1.7z"
 # The nightly build of 2026-11-04, pinned by hash: same version tag, newer
 # tree, FidelityFX SDK 4.1.2 with the INT8/INT8 Lite models. CI fetches it.

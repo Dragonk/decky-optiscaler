@@ -18,6 +18,32 @@ interface Props {
  * .asi that OptiScaler loads into the game, letting frame generation and the
  * upscaler change while playing instead of on the next launch.
  */
+/** Clipboard write that works in the Deck webview: the async clipboard API
+ *  when it is available, and a hidden-textarea fallback for webviews where it
+ *  is not (no secure context). Diagnostics are long, and the log lives in a
+ *  scrolling div -- retyping them is not a real option. */
+async function copyText(text: string): Promise<void> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+  } catch {
+    // No async clipboard here -- fall through to the legacy path.
+  }
+  const area = document.createElement("textarea");
+  area.value = text;
+  area.style.position = "fixed";
+  area.style.opacity = "0";
+  document.body.appendChild(area);
+  area.select();
+  try {
+    document.execCommand("copy");
+  } finally {
+    document.body.removeChild(area);
+  }
+}
+
 /**
  * Why the upscaler cannot be switched, when everything else is working.
  *
@@ -151,6 +177,8 @@ export function LivePanel({ targetDir, status, onChanged }: Props) {
   const [busy, setBusy] = useState(false);
   const [log, setLog] = useState<string[] | null>(null);
   const [probe, setProbe] = useState<ChainViewProbe | null>(null);
+  const [optiMismatch, setOptiMismatch] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   if (!status) return null;
 
@@ -238,6 +266,15 @@ export function LivePanel({ targetDir, status, onChanged }: Props) {
         </PanelSectionRow>
       ) : null}
 
+      {optiMismatch !== null ? (
+        <PanelSectionRow>
+          <Notice tone="warn" title="This game runs a different OptiScaler build">
+            {optiMismatch}
+            {" The live-control plugin mirrors OptiScaler memory layout for the build bundled here, so with another build it loads but cannot attach -- settings stay restart-only. Reinstall OptiScaler from this plugin and live control will work."}
+          </Notice>
+        </PanelSectionRow>
+      ) : null}
+
       {status.asi_available && !status.attached ? (
         <PanelSectionRow>
           <ButtonItem
@@ -266,13 +303,36 @@ export function LivePanel({ targetDir, status, onChanged }: Props) {
             onClick={async () => {
               setBusy(true);
               try {
-                setLog((await getLiveLog(targetDir, 30)).lines);
+                const report = await getLiveLog(targetDir, 30);
+                setLog(report.lines);
+                // A build the memory mirror does not know is the one thing a
+                // reinstall of the bundled OptiScaler fixes; say so in the open.
+                setOptiMismatch(report.opti_version_matches === false
+                  ? (report.opti_banner ?? "unknown build")
+                  : null);
               } finally {
                 setBusy(false);
               }
             }}
           >
             {log ? "Refresh diagnostics" : "Show diagnostics"}
+          </ButtonItem>
+        </PanelSectionRow>
+      ) : null}
+
+      {log ? (
+        <PanelSectionRow>
+          <ButtonItem
+            layout="below"
+            disabled={busy}
+            onClick={async () => {
+              if (!log) return;
+              await copyText(log.join("' + DQ + BS + 'n"));
+              setCopied(true);
+              window.setTimeout(() => setCopied(false), 1500);
+            }}
+          >
+            {copied ? "Copied to clipboard" : "Copy diagnostics"}
           </ButtonItem>
         </PanelSectionRow>
       ) : null}

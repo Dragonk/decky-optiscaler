@@ -9,6 +9,7 @@ from . import autoplan, fsr4build, installer, live, launchers, monitor, reframew
 from .constants import (
     DEFAULT_PROXY,
     INI_NAME,
+    LIVE_CONTROL_COMMIT,
     OPTIPATCHER_NAME,
     OPTIPATCHER_VERSION,
     OPTISCALER_VERSION,
@@ -998,7 +999,20 @@ class OptiScalerService:
         if opti:
             combined.append("---- OptiScaler.log ----")
             combined.extend(opti)
-        return {"lines": combined}
+        # The banner says which OptiScaler build is actually running; the
+        # live-control mirror is generated for exactly one commit, so any
+        # other build is the reason "cannot attach" needs to name.
+        banner = await self._run(live.opti_banner, target_dir)
+        commit = live.banner_commit(banner)
+        return {
+            "lines": combined,
+            "opti_banner": banner,
+            "opti_commit": commit,
+            "expected_commit": LIVE_CONTROL_COMMIT,
+            # None -- no banner to read -- never reads as a mismatch.
+            "opti_version_matches": (None if commit is None
+                                    else commit.lower() == LIVE_CONTROL_COMMIT.lower()),
+        }
 
     # -- monitoring ------------------------------------------------------
     async def get_monitor(self, target_dir):

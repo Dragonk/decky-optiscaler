@@ -920,3 +920,46 @@ def opti_log_tail(target_dir, lines=40, head_lines=18):
                 + tail[-lines:])
     except OSError:
         return []
+
+
+def opti_banner(target_dir):
+    """The version banner OptiScaler writes as its first log line.
+
+    The live-control plugin mirrors OptiScaler's Config for one exact build,
+    so a game running any other build attaches but never finds the config
+    object: everything reads "not connected" a minute in. The banner --
+    version, commit, build stamp -- is what turns that from a mystery into
+    "reinstall the bundled OptiScaler from the plugin".
+    """
+    path = _newest_control_file(target_dir, "OptiScaler.log")
+    if path is None:
+        return None
+    try:
+        with path.open("rb") as f:
+            head = f.read(64 * 1024)
+    except OSError:
+        return None
+    for line in head.decode("utf-8", errors="replace").splitlines():
+        if "OptiScaler v" in line:
+            return line
+    return None
+
+
+def banner_commit(banner):
+    """The commit token out of a version banner, "(10911bcb)" and friends.
+
+    Parsed rather than reached for with a regular expression: the banner is
+    OptiScaler's own log format, and the first parenthesised token after
+    "OptiScaler v<version>" is the commit it was built from.
+    """
+    if not banner:
+        return None
+    start = banner.find("OptiScaler v")
+    rest = banner[start:] if start >= 0 else banner
+    opened = rest.find("(")
+    if opened < 0:
+        return None
+    closed = rest.find(")", opened)
+    if closed < 0:
+        return None
+    return rest[opened + 1:closed].strip() or None

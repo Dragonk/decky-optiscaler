@@ -176,7 +176,19 @@ export const installLive = callable<[targetDir: string], ActionResult>("install_
 export const switchUpscaler = callable<[targetDir: string, code: string], ActionResult>(
   "switch_upscaler"
 );
-export const getLiveLog = callable<[targetDir: string, lines?: number], { lines: string[] }>(
+export interface LiveLogReport {
+  lines: string[];
+  /** OptiScaler's own first log line, when its log exists. */
+  opti_banner?: string | null;
+  /** The commit token out of that banner, e.g. 10911bcb. */
+  opti_commit?: string | null;
+  /** The commit the live-control memory mirror is generated for. */
+  expected_commit?: string;
+  /** False means: another OptiScaler build, live control cannot attach. */
+  opti_version_matches?: boolean | null;
+}
+
+export const getLiveLog = callable<[targetDir: string, lines?: number], LiveLogReport>(
   "get_live_log"
 );
 
