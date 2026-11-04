@@ -750,6 +750,16 @@ def check_live_control():
                                            "set FSRFGEnableWatermark bool 1",
                                            "apply-fg"], wm_body.splitlines())
 
+        # The overlay's FG hotkey writes FGEnabled and raises fgChanged when
+        # it enables; the panel's toggle now sends the same pair.
+        fgt = live.apply_changes(str(target), [
+            {"section": "FrameGen", "key": "Enabled", "value": "true"},
+        ])
+        fgt_body = (target / live.CMD_FILE).read_text()
+        check("the fg toggle raises fgChanged the way the hotkey does",
+              fgt_body.splitlines()[1:] == ["set FGEnabled bool 1", "fg-on"],
+              fgt_body.splitlines())
+
         check("a change with nothing live-settable sends nothing",
               live.apply_changes(str(target), [
                   {"section": "Hotfix", "key": "DisableOverlays", "value": "true"}])["sent"] is False)

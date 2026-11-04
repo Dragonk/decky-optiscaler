@@ -3,6 +3,18 @@
 Newest first. Each release ships `Decky OptiScaler.zip` for Decky Loader's
 *Install from URL* (Developer mode), and bundles **OptiScaler 10.0.0-pre1** (nightly 2026-11-04).
 
+## [0.0.24] - 2026-11-04
+
+### Fixed
+
+- **The frame-generation toggle now mirrors the overlay's hotkey exactly.**
+  The hotkey writes FGEnabled and raises State's fgChanged flag when it turns
+  frame generation on, so OptiScaler rebuilds the generator's context on the
+  next frame; the panel's toggle sent only the config write. The toggle now
+  sends the same raise, best effort -- OptiScaler's per-frame activation
+  covers the enable either way, so a missing flag no longer reads as a
+  broken toggle.
+
 ## [0.0.23] - 2026-11-04
 
 ### Fixed

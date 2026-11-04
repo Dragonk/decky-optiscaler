@@ -1846,28 +1846,36 @@ static void WriteStatus(const char* status) {
 
 static void SyncWatermarkEnv();
 
-/** Rebuild the frame generator, the way the overlay's FSR-FG watermark
- *  checkbox does: raise State::fgChanged alone. FSRFG_Dx12::Dispatch sees the
- *  flag on its next frame and rebuilds the generator, and it is then that the
- *  closed-source FSR-FG runtime re-reads the MLFI-WATERMARK variable the
- *  worker mirrors out of Config -- a write without the flag changed nothing
- *  until the next launch.
+/**
+ * Raise State::fgChanged, the way the overlay's own frame-generation hotkey
+ * does when it turns frame generation on: FSRFG_Dx12::EvaluateState sees the
+ * flag on the next upscaler dispatch and rebuilds the generator's context
+ * from the Config value the command just wrote. Without the flag OptiScaler
+ * still activates per frame, but the raise is the hotkey's own route and it
+ * is what makes a re-enable after a mid-game disable settle cleanly instead
+ * of trusting the pause bookkeeping.
+ *
+ * strict is the watermark case: that runtime only re-reads MLFI-WATERMARK
+ * when the generator builds its context, so a flag that cannot be raised is a
+ * failure worth reporting. The frame-generation toggle is best effort --
+ * OptiScaler's per-frame Activate covers the enable either way, and failing
+ * a toggle over a missing flag would read as a broken toggle.
  */
-static bool ApplyFgRefresh() {
-    if (!g_fgFlags.fgChanged) {
-        snprintf(g_error, sizeof(g_error),
-                 "fgChanged not located; the frame generator cannot rebuild now");
-        return false;
-    }
-    if (!Writable(g_fgFlags.fgChanged, 1)) {
-        snprintf(g_error, sizeof(g_error), "State's fgChanged flag is not writable");
-        return false;
+static bool RaiseFgChanged(bool strict) {
+    if (!g_fgFlags.fgChanged || !Writable(g_fgFlags.fgChanged, 1)) {
+        if (strict) {
+            snprintf(g_error, sizeof(g_error),
+                     "fgChanged not located; the frame generator cannot rebuild now");
+            return false;
+        }
+        LogLine("fgChanged not located; leaving the rebuild to OptiScaler's next dispatch");
+        return true;
     }
     // The overlay skips this when frame generation is off: nothing Dispatches,
     // so nothing would consume the flag, and the generator reads the variable
     // anyway whenever it next starts.
     if (g_config && ReadBoolField("FGEnabled") == 0) {
-        LogLine("frame generation is off; the generator reads MLFI-WATERMARK when it starts");
+        LogLine("frame generation is off; nothing to rebuild until it is on");
         return true;
     }
     *g_fgFlags.fgChanged = 1;
@@ -1880,6 +1888,7 @@ static int ApplyCommands(char* text) {
     int applied = 0;
     bool wantBackendChange = false;
     bool wantFgRefresh = false;
+    bool fgRefreshStrict = true;
     // Whatever went wrong last time is not evidence about this command, and a
     // stale line here reads as a live failure in the panel.
     g_error[0] = 0;
@@ -1913,6 +1922,11 @@ static int ApplyCommands(char* text) {
             // The FG watermark's refresh: the closed-source FSR-FG runtime
             // reads its variable when the generator builds its context.
             wantFgRefresh = true;
+        } else if (strcmp(verb, "fg-on") == 0) {
+            // The frame-generation toggle's companion, mirroring the
+            // overlay's hotkey, which raises fgChanged when it enables.
+            wantFgRefresh = true;
+            fgRefreshStrict = false;
         }
     }
     // Both rebuilds re-create a driver context, and the watermark variables
@@ -1924,7 +1938,7 @@ static int ApplyCommands(char* text) {
         if (marked) applied++;
     }
     if (wantFgRefresh) {
-        if (ApplyFgRefresh()) applied++;
+        if (RaiseFgChanged(fgRefreshStrict)) applied++;
     }
     return applied;
 }

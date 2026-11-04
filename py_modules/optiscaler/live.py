@@ -185,8 +185,10 @@ def _backend_value(value):
 # keeps its "restart to apply" treatment.
 LIVE_FIELDS = {
     # Frame generation: FGEnabled is checked per frame by the swapchain and by
-    # every FG dispatch path, which is exactly why the overlay's hotkey works.
-    "FrameGen.Enabled": LiveField("FGEnabled", "bool", _bool),
+    # every FG dispatch path. The overlay's hotkey also raises fgChanged when
+    # it enables, so the toggle sends the same raise alongside the write --
+    # "fg-on" is best effort, unlike the watermark's "apply-fg".
+    "FrameGen.Enabled": LiveField("FGEnabled", "bool", _bool, after="fg-on"),
     "OptiFG.HUDFix": LiveField("FGHUDFix", "bool", _bool),
     "FrameGen.DebugView": LiveField("FGDebugView", "bool", _bool),
     "OptiFG.MakeDepthCopy": LiveField("FGMakeDepthCopy", "bool", _bool),
