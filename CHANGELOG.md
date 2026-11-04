@@ -3,6 +3,21 @@
 Newest first. Each release ships `Decky OptiScaler.zip` for Decky Loader's
 *Install from URL* (Developer mode), and bundles **OptiScaler 10.0.0-pre1** (nightly 2026-11-04).
 
+## [0.0.14] - 2026-11-04
+
+### Fixed
+
+- **Live control stayed "not connected" in Xodus games, whatever
+  the rebuild fixed.** An encrypted Xodus game starts OptiScaler out of its
+  temporary chain view, and the in-game module keeps its status, log and
+  command files next to the DLL it was loaded from — the view, which the
+  panel never looked in. Those files are now read from and written to every
+  folder the game may be running from: the newest status and log win, a
+  command reaches all of them, a control directory reported inside a view
+  counts as a match, and installing live control drops the module into a
+  running view as well, so the current session picks it up without waiting
+  for a relaunch. The Xodus probe now also reports whether a view carries
+  the live-control module itself.
 ## [0.0.13] - 2026-11-04
 
 ### Fixed

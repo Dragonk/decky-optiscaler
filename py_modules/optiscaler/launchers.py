@@ -291,6 +291,8 @@ CHAIN_VIEW_PREFIXES = (".xodus-chain-", "xodus-chain-")
 CHAIN_VIEW_MARKERS = (
     "dxgi.dll", "version.dll", "winmm.dll", "d3d12.dll", "dinput8.dll",
     "OptiScaler.ini", "optiscaler.ini",
+    # Where the live-control module itself lands once it is installed.
+    "OptiScaler/plugins/decky_optiscaler_live.asi",
 )
 
 
@@ -364,4 +366,26 @@ def probe_chain_views(game_dir):
         marker: _marker_state(game / marker) for marker in CHAIN_VIEW_MARKERS
     }
     return {"views": views, "game_markers": game_markers, "scanned": scanned}
+
+
+def chain_view_dirs(game_dir):
+    """The Xodus launch views existing around a game folder right now.
+
+    A view exists only while its game is running, so this is asked fresh
+    every time: it is what lets the live channel follow an encrypted game
+    into the folder its executable actually starts from.
+    """
+    game = Path(game_dir)
+    found = []
+    for root in (game.parent, game):
+        if not root.is_dir():
+            continue
+        try:
+            entries = list(root.iterdir())
+        except OSError:
+            continue
+        for entry in entries:
+            if entry.name.startswith(CHAIN_VIEW_PREFIXES) and entry.is_dir():
+                found.append(entry)
+    return found
 

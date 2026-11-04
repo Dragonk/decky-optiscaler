@@ -2261,6 +2261,35 @@ def check_xodus_chain_probe():
         check("the view's own files are listed for the panel",
               "Game.exe" in view["files"], view["files"])
 
+        # The live channel has to follow the game into its view: the newest
+        # status file wins wherever it lives, a command reaches every view,
+        # and installing live control reaches a running view too.
+        check("the live channel finds the views around a game",
+              sorted(v.name for v in launchers.chain_view_dirs(str(game))) ==
+              [".xodus-chain-Ab12", "xodus-chain-Cd34"],
+              [v.name for v in launchers.chain_view_dirs(str(game))])
+        from optiscaler import live
+        (linked / "decky_optiscaler_live.status").write_text("status ready")
+        (game / "decky_optiscaler_live.status").write_text("status failed")
+        os.utime(linked / "decky_optiscaler_live.status", (2000000000, 2000000000))
+        os.utime(game / "decky_optiscaler_live.status", (1000000000, 1000000000))
+        live_report = live.status(str(game))
+        check("the newest status file is read, whichever folder holds it",
+              live_report["state"] == "ready", live_report["state"])
+        switch = live.switch_backend(str(game), "xess")
+        check("a command reaches the game folder and every live view",
+              switch["ok"]
+              and (game / "decky_optiscaler_live.cmd").is_file()
+              and (linked / "decky_optiscaler_live.cmd").is_file(),
+              switch)
+        shipped = root / "shipped.asi"
+        shipped.write_bytes(b"MZ live")
+        install = live.install_asi(str(game), str(shipped))
+        check("installing live control reaches a running view",
+              install["ok"]
+              and (linked / "OptiScaler/plugins/decky_optiscaler_live.asi").is_file(),
+              install)
+
         # A folder with no views around it: the report is empty but honest.
         quiet_root = Path(tempfile.mkdtemp(prefix="optiscaler-xodus-none-"))
         quiet = quiet_root / "Game"

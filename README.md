@@ -41,7 +41,11 @@ installing works offline and every game gets the same build.
   game. So the live panel offers `Check Xodus launch views`: run it
   while the game is up and it reads the view the executable actually started
   from, reporting which of OptiScaler's files were linked into it and where
-  they point — the one honest answer the closed backend allows.
+  they point — the one honest answer the closed backend allows. Live control
+  follows the game in there too: while the game runs, its status and its log
+  are read from the view as well, commands are written to it, and installing
+  live control drops the module into it — an encrypted game is steered live
+  like any other, provided its view carries OptiScaler at all.
 - **Sets the game up from the wiki, online or not.** Your game is matched against the OptiScaler
   [Compatibility List](https://github.com/optiscaler/OptiScaler/wiki/Compatibility-List), with a
   search box to pin the right entry. A copy of the list ships with the plugin and the last

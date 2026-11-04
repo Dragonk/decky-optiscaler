@@ -21,6 +21,7 @@ import re
 import time
 from pathlib import Path
 
+from . import launchers
 from .constants import BACKUP_DIR
 
 ASI_NAME = "decky_optiscaler_live.asi"
@@ -241,6 +242,55 @@ def _control_path(target_dir, name):
     return Path(target_dir) / name
 
 
+def control_dirs(target_dir):
+    """Every folder the in-game side may keep its control files in.
+
+    The game folder is the one the panel manages, but an encrypted Xodus
+    game starts OptiScaler out of a temporary chain view, and the ASI it
+    loads writes next to the DLL it was loaded from. A view exists only
+    while the game runs, so it is re-asked on every call.
+    """
+    dirs = [Path(target_dir)]
+    dirs.extend(launchers.chain_view_dirs(target_dir))
+    return dirs
+
+
+def _newest_control_file(target_dir, name):
+    """The newest copy of a control file across every folder it may live in."""
+    best = None
+    for directory in control_dirs(target_dir):
+        candidate = directory / name
+        try:
+            if candidate.is_file():
+                mtime = candidate.stat().st_mtime
+                if best is None or mtime > best[1]:
+                    best = (candidate, mtime)
+        except OSError:
+            continue
+    return best[0] if best else None
+
+
+def _write_cmd_everywhere(target_dir, body):
+    """Write a command file to every folder the in-game side may be watching.
+
+    The game folder always gets one; a view that vanishes mid-write is
+    skipped rather than fatal -- the running game says soon enough whether
+    the command landed.
+    """
+    written = 0
+    for directory in control_dirs(target_dir):
+        path = directory / CMD_FILE
+        try:
+            # Write-then-replace so the ASI never reads a half-written file.
+            temp = path.with_suffix(".cmd.tmp")
+            temp.write_text(body, encoding="utf-8")
+            os.replace(temp, path)
+            written += 1
+        except OSError:
+            continue
+    return written
+
+
 def installed(target_dir):
     return asi_path(target_dir).is_file()
 
@@ -297,8 +347,28 @@ def install_plugin_asi(target_dir, source, name, logger=None):
 
 
 def install_asi(target_dir, source, logger=None):
-    """Drop the live-control ASI into the game's OptiScaler plugin folder."""
-    return install_plugin_asi(target_dir, source, ASI_NAME, logger)
+    """Drop the live-control ASI into the game's OptiScaler plugin folder.
+
+    An encrypted Xodus game runs OptiScaler out of a chain view that exists
+    only while the game is up, and the ASI is loaded from the *view's* plugin
+    folder -- so a running session is handed its copy right away instead of
+    waiting for a relaunch to materialize one. What the view does with files
+    added later is the backend's closed book; this is the honest half of it.
+    """
+    result = install_plugin_asi(target_dir, source, ASI_NAME, logger)
+    if not result.get("ok"):
+        return result
+    for view in launchers.chain_view_dirs(target_dir):
+        try:
+            destination = view / PLUGIN_SUBDIR / ASI_NAME
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(Path(source).read_bytes())
+            if logger:
+                logger.info("installed %s into chain view %s", ASI_NAME, view)
+        except OSError as exc:
+            if logger:
+                logger.warning("could not install into chain view %s: %s", view, exc)
+    return result
 
 
 def remove_asi(target_dir, logger=None):
@@ -317,6 +387,19 @@ def remove_asi(target_dir, logger=None):
         except OSError as exc:
             if logger:
                 logger.warning("could not remove %s: %s", path, exc)
+
+    # A running view may hold its own copies of the same files; they die with
+    # the view when the launch ends, but a live session should stop answering
+    # the moment its module is removed.
+    for view in launchers.chain_view_dirs(target_dir):
+        for path in (view / PLUGIN_SUBDIR / ASI_NAME,
+                     view / CMD_FILE, view / STATUS_FILE, view / LOG_FILE):
+            try:
+                if path.is_file():
+                    path.unlink()
+                    removed.append(path.name)
+            except OSError:
+                pass
 
     # Only clean the plugins folder up if we are the ones who created it.
     plugin_dir = Path(target_dir) / PLUGIN_SUBDIR
@@ -498,7 +581,8 @@ def _read_measurements(report, raw):
 
 def status(target_dir, source=None):
     """What the in-game side is doing right now."""
-    path = _control_path(target_dir, STATUS_FILE)
+    views = launchers.chain_view_dirs(target_dir)
+    path = _newest_control_file(target_dir, STATUS_FILE)
     report = {
         "asi_installed": installed(target_dir),
         # False when the game holds an older build of the in-game plugin than
@@ -547,7 +631,7 @@ def status(target_dir, source=None):
         "dir": None,
         "dir_matches": None,
     }
-    if not path.is_file():
+    if path is None:
         return report
     try:
         raw = _parse_status(path.read_text(encoding="utf-8", errors="replace"))
@@ -599,6 +683,12 @@ def status(target_dir, source=None):
     report["dir"] = reported_dir
     if reported_dir:
         report["dir_matches"] = _same_dir(reported_dir, target_dir)
+        if not report["dir_matches"]:
+            # A control directory inside a chain view is where an encrypted
+            # Xodus game is expected to keep its files now, not a mismatch.
+            report["dir_matches"] = any(
+                _same_dir(reported_dir, view) for view in views
+            )
     return report
 
 
@@ -692,14 +782,9 @@ def apply_changes(target_dir, changes):
 
     seq = int(time.time() * 1000)
     body = "\n".join([f"seq {seq}", *live, ""])
-    path = _control_path(target_dir, CMD_FILE)
-    try:
-        # Write-then-replace so the ASI never reads a half-written command file.
-        temp = path.with_suffix(".cmd.tmp")
-        temp.write_text(body, encoding="utf-8")
-        os.replace(temp, path)
-    except OSError as exc:
-        return {"ok": False, "error": str(exc), "applied": [], "deferred": deferred, "sent": False}
+    if not _write_cmd_everywhere(target_dir, body):
+        return {"ok": False, "error": "no control folder accepted the command",
+                "applied": [], "deferred": deferred, "sent": False}
 
     return {
         "ok": True,
@@ -744,19 +829,14 @@ def switch_backend(target_dir, code):
         return {"ok": False, "error": f"not an OptiScaler backend id: {code}"}
     seq = int(time.time() * 1000)
     body = "\n".join([f"seq {seq}", f"backend {code}", ""])
-    path = _control_path(target_dir, CMD_FILE)
-    try:
-        temp = path.with_suffix(".cmd.tmp")
-        temp.write_text(body, encoding="utf-8")
-        os.replace(temp, path)
-    except OSError as exc:
-        return {"ok": False, "error": str(exc)}
+    if not _write_cmd_everywhere(target_dir, body):
+        return {"ok": False, "error": "no control folder accepted the command"}
     return {"ok": True, "sent": True, "backend": code, "seq": seq}
 
 
 def log_tail(target_dir, lines=40):
-    path = _control_path(target_dir, LOG_FILE)
-    if not path.is_file():
+    path = _newest_control_file(target_dir, LOG_FILE)
+    if path is None:
         return []
     try:
         return path.read_text(encoding="utf-8", errors="replace").splitlines()[-lines:]
