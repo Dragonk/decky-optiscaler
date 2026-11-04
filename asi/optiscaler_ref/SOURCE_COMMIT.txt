@@ -1,8 +1,13 @@
-b686ef4bc1e755185685b47a2da2d8095f5467ce
+5eb4bfabf3c93cdb7e96b37065441f5c8000ccc7
 
-Tag:      v10.0.0-pre1
-Date:     2026-10-21
-Source:   https://github.com/optiscaler/OptiScaler/tree/b686ef4bc1e755185685b47a2da2d8095f5467ce/OptiScaler
+Tag:      v10.0.0-pre1 (the shipped nightly 20261104 runtime is built from this lineage)
+Date:     2026-11-03
+Source:   https://github.com/optiscaler/OptiScaler/tree/5eb4bfabf3c93cdb7e96b37065441f5c8000ccc7/OptiScaler
+
+The nightly tree moves files against the v10.0.0-pre1 tag: the vendored
+reference files live at OptiScaler/hooks/FG_Hooks.cpp,
+OptiScaler/menu/menu_common.cpp, OptiScaler/wrapped/wrapped_swapchain.cpp and
+OptiScaler/upscalers/FeatureProvider_{Dx11,Dx12,Vk}.cpp.
 
 These headers MUST match the OptiScaler build shipped in bin/. The layout
 mirror the ASI uses is generated from Config.h, so a mismatch means the ASI

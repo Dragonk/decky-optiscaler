@@ -53,6 +53,8 @@ ENUM_UNDERLYING = {
     "FGNvngxReplacement": "uint32_t",
     "FpsOverlay": "uint32_t",
     "FpsOverlayPos": "uint32_t",
+    "FpsOverlayShadow": "uint32_t",
+    "FpsOverlayFpsRow": "uint32_t",
     "ReprojectionFill": "uint32_t",
 }
 
@@ -103,6 +105,15 @@ def split_declarations(body):
                 depth += 1
         elif ch in "})]":
             depth -= 1
+            # A method body ends with a closing brace and no semicolon,
+            # so the next member would be glued to it. End the declaration
+            # when a brace returns to depth 0; the orphan ; after a data
+            # member's initializer flushes as an empty one.
+            if ch == "}" and depth == 0:
+                out.append("".join(buf).strip())
+                buf = []
+                i += 1
+                continue
         if ch == ";" and depth == 0:
             out.append("".join(buf).strip())
             buf = []
@@ -130,14 +141,22 @@ def parse_members(header_text):
         decl = " ".join(decl.split())
         if not decl or decl.endswith(":"):
             continue
-        if decl.startswith(("public", "private", "protected", "template", "static ")):
+        if decl.startswith(("public", "private", "protected", "template", "static ", "struct ", "class ", "friend")):
+            continue
+        # Trailing private state (the custom-upscaler cache and its lock):
+        # declared behind every mirrored member, so they shift nothing the
+        # mirror offsets - but that only holds while they stay at the tail.
+        if decl.startswith(("std::map<", "std::mutex")):
+            skipped.append(decl)
             continue
         if "inline static" in decl or decl.startswith("using "):
             skipped.append(decl)
             continue
-        # Function declarations: a ( before any = initializer.
+        # Function declarations: a ( (the parameter list) before any brace a
+        # data member's initializer would open, and before any = default.
         paren, equals = decl.find("("), decl.find("=")
-        if paren != -1 and (equals == -1 or paren < equals) and not decl.startswith("CustomOptional"):
+        brace = decl.find("{")
+        if paren != -1 and (equals == -1 or paren < equals) and (brace == -1 or paren < brace):
             skipped.append(decl)
             continue
 
@@ -193,6 +212,15 @@ READ_ANY_RE = re.compile(
 # Reading it there avoids guessing from statement shapes in Reload(), where an
 # option read into a local (`if (auto v = readEnum<...>(...)) X.set_from_config(*v)`)
 # sits next to an unrelated member and is easy to file under the wrong one.
+# v10 saves the upscaler pair through a helper that names the key and the
+# member outright: SaveUpscaler("Dx12Upscaler", Instance()->Dx12Upscaler).
+# The key is bare -- no section -- so it can only be matched against a key
+# Reload() already found, by suffix, and only when exactly one is unnamed.
+SAVE_HELPER_RE = re.compile(
+    r'Save[A-Za-z_]\w*\(\s*"(?P<key>[^"]+)"\s*,\s*'
+    r'Instance\(\)->(?P<member>[A-Za-z_]\w*)',
+)
+
 SAVE_RE = re.compile(
     r"ini\.SetValue\(\s*\"(?P<section>[^\"]+)\"\s*,\s*\"(?P<key>[^\"]+)\"\s*,\s*"
     r"Get\w+Value\(\s*Instance\(\)->(?P<member>[A-Za-z_]\w*)",
@@ -230,7 +258,15 @@ def parse_ini_map(source_text):
         entry["member"] = entry["member"] or match.group("member")
         entry["read"] = entry["read"] or ("Enum" if how.startswith("Enum") else how)
 
-    # Anything still unnamed is a key Save() does not write directly and whose
+                # Save() helpers with a bare key: authoritative, matched by key suffix.
+    for match in SAVE_HELPER_RE.finditer(text):
+        key, member = match.group("key"), match.group("member")
+        hits = [k for k in mapping
+                if k.split(".", 1)[-1] == key and mapping[k]["member"] is None]
+        if len(hits) == 1:
+            mapping[hits[0]]["member"] = member
+
+# Anything still unnamed is a key Save() does not write directly and whose
     # read does not sit inside a set_from_config; leave it unmapped so main()
     # can report it rather than inventing a member.
     return mapping

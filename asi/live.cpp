@@ -643,16 +643,19 @@ static bool FindChangeBackend(const StateLoc* state, BackendMap* out) {
 // -------------------------------------------------------- frame counter --
 
 /**
- * The two members declared immediately before State::changeBackend.
+ * The members declared immediately before State::changeBackend.
  *
- * v10 slipped `vkAntiLagSupported` in between the counter and the map, so the
- * counter is no longer the eight bytes in front of it -- mirroring the run is
- * how that offset stays honest rather than being a number that has to be
- * remembered.
+ * v10 slipped `vkAntiLagSupported` in between the counter and the map, and the
+ * 20261104 nightly added the AMD flip-metering pair behind it. They fit into
+ * the padding that bool left, so the counter is still 16 bytes in front of the
+ * map -- mirroring the run is how that stays honest rather than being a number
+ * that has to be remembered.
  */
 struct state_pre {
     uint64_t frameCount;
     bool vkAntiLagSupported;
+    bool amdFlipMeterCreated;
+    uint32_t amdFlipMeterMode;
     ud_table changeBackend;
 };
 
@@ -698,7 +701,7 @@ static uint64_t* FindFrameCount(const BackendMap* map) {
 // Neither flag is a pointer and neither is next to anything with a distinctive
 // value, so they are located the way everything else here is: relative to an
 // object that can be identified. State::capturedHudlesses is another
-// unordered_dense table; the compiler works out that it is declared 21 bytes
+// unordered_dense table; the compiler works out that it is declared 22 bytes
 // past FGchanged, and it is one of only two such tables in State -- the other
 // being changeBackend, which is already located and which is declared after
 // capturedHudlesses, so it bounds the search. What confirms a candidate is what
@@ -708,7 +711,7 @@ static uint64_t* FindFrameCount(const BackendMap* map) {
 // writing a byte into State on the strength of a guess.
 
 /**
- * State's FG flags, from fgPresentIsCalled up to the table that identifies
+ * State's FG flags, from fgOnlyGenerated up to the table that identifies
  * them.
  *
  * v10 moved fgChanged and scChanged, and renamed the block around them, but the
@@ -719,10 +722,10 @@ static uint64_t* FindFrameCount(const BackendMap* map) {
  *
  * skipHeapCapture, which sat in the middle of this run in 0.9.4, is now
  * `inline static thread_local` and occupies no space in State, so it is not
- * mirrored here.
+ * mirrored here. The 20261104 nightly removed fgPresentIsCalled from the run;
+ * the mirror follows, which moves both flags one byte closer to the table.
  */
 struct state_fg_head {
-    bool fgPresentIsCalled;
     bool fgOnlyGenerated;
     bool fgHudlessCompare;
     bool fgChanged;
@@ -741,8 +744,8 @@ struct state_fg_head {
     ((ptrdiff_t) offsetof(state_fg_head, member) -       \
      (ptrdiff_t) offsetof(state_fg_head, capturedHudlesses))
 
-static_assert(FG_BLOCK_OFF(fgChanged) == -21, "fgChanged is 21 bytes in front of the table");
-static_assert(FG_BLOCK_OFF(scChanged) == -20, "scChanged is declared straight after fgChanged");
+static_assert(FG_BLOCK_OFF(fgChanged) == -22, "fgChanged is 22 bytes in front of the table");
+static_assert(FG_BLOCK_OFF(scChanged) == -21, "scChanged is declared straight after fgChanged");
 
 /**
  * The four members declared straight after capturedHudlesses, which are what

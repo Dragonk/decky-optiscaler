@@ -5,7 +5,7 @@ import os
 import time
 from pathlib import Path
 
-from . import autoplan, fsr4build, installer, live, monitor, reframework, steam
+from . import autoplan, fsr4build, installer, live, launchers, monitor, reframework, steam
 from .constants import (
     DEFAULT_PROXY,
     INI_NAME,
@@ -952,6 +952,16 @@ class OptiScalerService:
         report["asi_available"] = source is not None
         report["live_keys"] = sorted(live.LIVE_FIELDS)
         return report
+
+    async def probe_chain_views(self, target_dir):
+        """Xodus Nexus launch views around a game folder, read live.
+
+        The views are what an encrypted game actually runs from, and the
+        backend that materializes them is closed -- so this is the one
+        question that can still be asked honestly: are the files this
+        plugin installed visible where the game starts?
+        """
+        return await self._run(launchers.probe_chain_views, target_dir)
 
     async def install_live(self, target_dir):
         """Add live control to a game OptiScaler is already installed in."""

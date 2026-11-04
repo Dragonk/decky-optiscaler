@@ -12,6 +12,7 @@ struct Config
     CustomOptional<bool> HDR;
     CustomOptional<bool> JitterCancellation;
     CustomOptional<bool> DisplayResolution;
+    CustomOptional<bool> DynamicResolution;
     CustomOptional<bool> DisableReactiveMask;
     CustomOptional<float> DlssReactiveMaskBias;
     CustomOptional<bool> LogToFile;
@@ -53,6 +54,8 @@ struct Config
     CustomOptional<msvc_wstring> FfxDx12RRPath;
     CustomOptional<msvc_wstring> FfxDx12RCPath;
     CustomOptional<msvc_wstring> FfxVkPath;
+    CustomOptional<msvc_wstring> FfxVkSRPath;
+    CustomOptional<msvc_wstring> FfxVkFGPath;
     CustomOptional<msvc_wstring> XeSSLibrary;
     CustomOptional<msvc_wstring> XeFGLibrary;
     CustomOptional<msvc_wstring> XeLLLibrary;
@@ -94,8 +97,32 @@ struct Config
     CustomOptional<int32_t> FpsShortcutKey;
     CustomOptional<int32_t> FpsCycleShortcutKey;
     CustomOptional<bool> FpsOverlayHorizontal;
+    CustomOptional<bool> FpsOverlayShowRatio;
+    CustomOptional<bool> FpsOverlayCompactLabels;
+    CustomOptional<bool> FpsOverlayHideAverages;
+    CustomOptional<msvc_string> FpsOverlayRows;
+    CustomOptional<uint32_t> FpsOverlayFpsRowType;
+    CustomOptional<float> FpsOverlayRowSpacing;
+    CustomOptional<float> FpsOverlayUpdateInterval;
     CustomOptional<float> FpsOverlayAlpha;
     CustomOptional<float> FpsScale;
+    CustomOptional<float> FpsOverlayGraphHeight;
+    CustomOptional<float> FpsOverlayPosX;
+    CustomOptional<float> FpsOverlayPosY;
+    CustomOptional<msvc_string> FpsOverlayFont;
+    CustomOptional<float> FpsOverlayFontSize;
+    CustomOptional<float> FpsOverlayLetterSpacing;
+    CustomOptional<float> FpsOverlayLabelScale;
+    CustomOptional<float> FpsOverlayValueScale;
+    CustomOptional<uint32_t> FpsOverlayLabelColor;
+    CustomOptional<uint32_t> FpsOverlayValueColor;
+    CustomOptional<uint32_t> FpsOverlayGraphColor;
+    CustomOptional<uint32_t> FpsOverlayBGColor;
+    CustomOptional<uint32_t> FpsOverlayShadowType;
+    CustomOptional<float> FpsOverlayShadowStrength;
+    CustomOptional<uint32_t> FpsOverlayShadowColor;
+    CustomOptional<float> FpsOverlayRounding;
+    CustomOptional<float> MenuRounding;
     CustomOptional<bool> UseHQFont;
     CustomOptional<bool> DisableSplash;
     CustomOptional<float> FontSize;
@@ -166,6 +193,8 @@ struct Config
     CustomOptional<uint32_t> OutputScalingDownscaler;
     CustomOptional<bool> FsrDebugView;
     CustomOptional<int32_t> FfxUpscalerIndex;
+    CustomOptional<msvc_string> CustomUpscaler;
+    CustomOptional<msvc_string> CustomUpscalerVk;
     CustomOptional<int32_t> FfxFGIndex;
     CustomOptional<bool> FsrUseMaskForTransparency;
     CustomOptional<bool> FsrNonLinearColorSpace;
@@ -193,7 +222,6 @@ struct Config
     CustomOptional<bool> VulkanUseCopyForOutput;
     CustomOptional<bool> DisableFlipMetering;
     CustomOptional<bool> DisableOTA;
-    CustomOptional<bool> ImASillyGooseThatIsAboutToMisuseReflex;
     CustomOptional<bool> DxgiSpoofing;
     CustomOptional<bool> DxgiFactoryWrapping;
     CustomOptional<bool> StreamlineSpoofing;
@@ -285,6 +313,7 @@ struct Config
     CustomOptional<bool> FGFPTAllowHybridSpin;
     CustomOptional<int32_t> FGFPTHybridSpinTime;
     CustomOptional<bool> FGFPTAllowWaitForSingleObjectOnFence;
+    CustomOptional<bool> FSRFGDisableFlipMetering;
     CustomOptional<bool> FSRFGSkipConfigForHudless;
     CustomOptional<bool> FSRFGSkipDispatchForHudless;
     CustomOptional<bool> FSRFGEnableWatermark;
@@ -358,6 +387,7 @@ struct Config
     X(HDR, bool, OPTI_BOOL) \
     X(JitterCancellation, bool, OPTI_BOOL) \
     X(DisplayResolution, bool, OPTI_BOOL) \
+    X(DynamicResolution, bool, OPTI_BOOL) \
     X(DisableReactiveMask, bool, OPTI_BOOL) \
     X(DlssReactiveMaskBias, float, OPTI_FLOAT) \
     X(LogToFile, bool, OPTI_BOOL) \
@@ -399,6 +429,8 @@ struct Config
     X(FfxDx12RRPath, msvc_wstring, OPTI_WSTR) \
     X(FfxDx12RCPath, msvc_wstring, OPTI_WSTR) \
     X(FfxVkPath, msvc_wstring, OPTI_WSTR) \
+    X(FfxVkSRPath, msvc_wstring, OPTI_WSTR) \
+    X(FfxVkFGPath, msvc_wstring, OPTI_WSTR) \
     X(XeSSLibrary, msvc_wstring, OPTI_WSTR) \
     X(XeFGLibrary, msvc_wstring, OPTI_WSTR) \
     X(XeLLLibrary, msvc_wstring, OPTI_WSTR) \
@@ -440,8 +472,32 @@ struct Config
     X(FpsShortcutKey, int32_t, OPTI_I32) \
     X(FpsCycleShortcutKey, int32_t, OPTI_I32) \
     X(FpsOverlayHorizontal, bool, OPTI_BOOL) \
+    X(FpsOverlayShowRatio, bool, OPTI_BOOL) \
+    X(FpsOverlayCompactLabels, bool, OPTI_BOOL) \
+    X(FpsOverlayHideAverages, bool, OPTI_BOOL) \
+    X(FpsOverlayRows, msvc_string, OPTI_STR) \
+    X(FpsOverlayFpsRowType, uint32_t, OPTI_U32) \
+    X(FpsOverlayRowSpacing, float, OPTI_FLOAT) \
+    X(FpsOverlayUpdateInterval, float, OPTI_FLOAT) \
     X(FpsOverlayAlpha, float, OPTI_FLOAT) \
     X(FpsScale, float, OPTI_FLOAT) \
+    X(FpsOverlayGraphHeight, float, OPTI_FLOAT) \
+    X(FpsOverlayPosX, float, OPTI_FLOAT) \
+    X(FpsOverlayPosY, float, OPTI_FLOAT) \
+    X(FpsOverlayFont, msvc_string, OPTI_STR) \
+    X(FpsOverlayFontSize, float, OPTI_FLOAT) \
+    X(FpsOverlayLetterSpacing, float, OPTI_FLOAT) \
+    X(FpsOverlayLabelScale, float, OPTI_FLOAT) \
+    X(FpsOverlayValueScale, float, OPTI_FLOAT) \
+    X(FpsOverlayLabelColor, uint32_t, OPTI_U32) \
+    X(FpsOverlayValueColor, uint32_t, OPTI_U32) \
+    X(FpsOverlayGraphColor, uint32_t, OPTI_U32) \
+    X(FpsOverlayBGColor, uint32_t, OPTI_U32) \
+    X(FpsOverlayShadowType, uint32_t, OPTI_U32) \
+    X(FpsOverlayShadowStrength, float, OPTI_FLOAT) \
+    X(FpsOverlayShadowColor, uint32_t, OPTI_U32) \
+    X(FpsOverlayRounding, float, OPTI_FLOAT) \
+    X(MenuRounding, float, OPTI_FLOAT) \
     X(UseHQFont, bool, OPTI_BOOL) \
     X(DisableSplash, bool, OPTI_BOOL) \
     X(FontSize, float, OPTI_FLOAT) \
@@ -512,6 +568,8 @@ struct Config
     X(OutputScalingDownscaler, uint32_t, OPTI_U32) \
     X(FsrDebugView, bool, OPTI_BOOL) \
     X(FfxUpscalerIndex, int32_t, OPTI_I32) \
+    X(CustomUpscaler, msvc_string, OPTI_STR) \
+    X(CustomUpscalerVk, msvc_string, OPTI_STR) \
     X(FfxFGIndex, int32_t, OPTI_I32) \
     X(FsrUseMaskForTransparency, bool, OPTI_BOOL) \
     X(FsrNonLinearColorSpace, bool, OPTI_BOOL) \
@@ -539,7 +597,6 @@ struct Config
     X(VulkanUseCopyForOutput, bool, OPTI_BOOL) \
     X(DisableFlipMetering, bool, OPTI_BOOL) \
     X(DisableOTA, bool, OPTI_BOOL) \
-    X(ImASillyGooseThatIsAboutToMisuseReflex, bool, OPTI_BOOL) \
     X(DxgiSpoofing, bool, OPTI_BOOL) \
     X(DxgiFactoryWrapping, bool, OPTI_BOOL) \
     X(StreamlineSpoofing, bool, OPTI_BOOL) \
@@ -631,6 +688,7 @@ struct Config
     X(FGFPTAllowHybridSpin, bool, OPTI_BOOL) \
     X(FGFPTHybridSpinTime, int32_t, OPTI_I32) \
     X(FGFPTAllowWaitForSingleObjectOnFence, bool, OPTI_BOOL) \
+    X(FSRFGDisableFlipMetering, bool, OPTI_BOOL) \
     X(FSRFGSkipConfigForHudless, bool, OPTI_BOOL) \
     X(FSRFGSkipDispatchForHudless, bool, OPTI_BOOL) \
     X(FSRFGEnableWatermark, bool, OPTI_BOOL) \

@@ -1963,9 +1963,13 @@ def check_asi_backend_layout():
         r"(?://[^\n]*\n\s*)*"
         r"bool vkAntiLagSupported = false;\s*"
         r"(?://[^\n]*\n\s*)*"
+        r"bool amdFlipMeterCreated = false;\s*"
+        r"(?://[^\n]*\n\s*)*"
+        r"uint32_t amdFlipMeterMode = 0;\s*"
+        r"(?://[^\n]*\n\s*)*"
         r"ankerl::unordered_dense::map<unsigned int, bool> changeBackend;",
         state_h)
-    check("frameCount, vkAntiLagSupported and changeBackend are still declared together",
+    check("frameCount, vkAntiLagSupported, the flip-metering pair and changeBackend are still declared together",
           pre is not None)
     tail = re.search(
         r"ankerl::unordered_dense::map<unsigned int, bool> changeBackend;\s*"
@@ -2090,6 +2094,10 @@ def check_asi_state_layout():
         ("uint64_t NVNGX_ApplicationId = 1337;", "the value that confirms that table"),
         ("UINT64 frameCount = 0;", "the counter the frame rate is read from"),
         ("bool vkAntiLagSupported = false;", "the bool v10 slipped in front of the map"),
+        ("bool amdFlipMeterCreated = false;", "the bool the nightly added after it"),
+        ("uint32_t amdFlipMeterMode = 0;", "the flip-metering mode that fills the padding"),
+        ("ankerl::unordered_dense::map<unsigned int, bool> changeBackend;",
+         "the table the counter and the flags hang off"),
         ("std::vector<const char*> ffxFGVersionNames {};", "the FFX FG version names"),
         ("std::vector<uint64_t> ffxFGVersionIds {};", "the ids declared beside them"),
         ("FfxVersionList ffxUpscalerVersionsDx12 {};",
@@ -2109,8 +2117,8 @@ def check_asi_state_layout():
     # Compiled assertions; their presence is what matters, the build enforces them.
     for text, why in (
         ("FRAME_COUNT_OFF == -16", "how far in front of the map the counter sits"),
-        ("FG_BLOCK_OFF(fgChanged) == -21", "how far in front of the table the flag sits"),
-        ("FG_BLOCK_OFF(scChanged) == -20", "the flag beside it"),
+        ("FG_BLOCK_OFF(fgChanged) == -22", "how far in front of the table the flag sits"),
+        ("FG_BLOCK_OFF(scChanged) == -21", "the flag beside it"),
         ("offsetof(hudless_block, clearCapturedHudlesses) == sizeof(ud_table)",
          "the bool that confirms the table"),
         ("offsetof(hudless_block, NVNGX_ApplicationId) == sizeof(ud_table) + 8",
@@ -2143,14 +2151,16 @@ def check_asi_state_layout():
           re.search(r'ImGui::Button\("Change FG"\).*?config->FfxFGIndex = _ffxFGIndex;\s*'
                     r'state\.fgChanged = true;', menu, re.S) is not None)
     # The FFX Upscaler combo is the overlay's version of the same action: the
-    # index into Config, then a rebuild of the current backend. This plugin
+    # index into Config -- the 20261104 nightly reaches it through a reference,
+    # auto& upscalerIndex = config->FfxUpscalerIndexFor(customName) -- then a
+    # rebuild of the current backend. This plugin
     # leaves newBackend at Upscaler::Reset instead of naming the current
     # backend, because ChangeFeature reads Reset as "use whatever Config holds
     # for this API" -- which is the same rebuild by a route that cannot pick the
     # wrong graphics API.
     check("the overlay's FFX Upscaler combo is still config, then a rebuild",
           re.search(r'ImGui::BeginCombo\("FFX Upscaler".*?'
-                    r'config->FfxUpscalerIndex = n;\s*'
+                    r'upscalerIndex = n;\s*'
                     r'state\.newBackend = currentBackend;\s*'
                     r'MARK_ALL_BACKENDS_CHANGED\(\);', menu, re.S) is not None)
     # What lets this plugin leave newBackend alone: every provider reads the
@@ -2185,13 +2195,83 @@ def check_asi_state_layout():
     fg_hooks = (ROOT / "asi" / "optiscaler_ref" / "FG_Hooks.cpp").read_text(encoding="utf-8")
     check("lastFGFrameTime is still timed in the frame-generation hook",
           "state.lastFGFrameTime = ftDelta;" in fg_hooks
-          and "state.fgPresentIsCalled = true;" in fg_hooks)
+          and "_lastFGFrameTime = now;" in fg_hooks)
     # OptiScaler's own overlay derives the pair the same way round this now
     # does: one measured rate, and the other from a ratio.
     menu = (ROOT / "asi" / "optiscaler_ref" / "menu_common.cpp").read_text(encoding="utf-8")
     check("the overlay still shows one rate divided into two",
           "frameRate / (double) (interpolatedFrameCount + 1)" in menu)
 
+
+def check_xodus_chain_probe():
+    """Reading Xodus Nexus launch views, live, for games that run from them.
+
+    The chain view is the folder an encrypted game's executable actually
+    starts from, and the backend that materializes it is closed -- so the
+    only honest answer to "can this game load OptiScaler" is to look inside
+    the view while it exists. What has to hold here: views are found under
+    both spellings of their prefix and nothing else is mistaken for one, a
+    linked marker says so and names its target, and the game folder's own
+    files are reported the same way for comparison.
+    """
+    import tempfile
+    from optiscaler import launchers
+
+    print()
+    print("Xodus chain views")
+    root = Path(tempfile.mkdtemp(prefix="optiscaler-xodus-"))
+    quiet_root = None
+    try:
+        game = root / "MyGame"
+        game.mkdir()
+        (game / "game.exe").write_bytes(b"MZ")
+        (game / "dxgi.dll").write_bytes(b"MZ opti")
+
+        # Hidden-prefix view with a link to the installed dxgi.dll, plus a
+        # decrypted executable of its own.
+        linked = root / ".xodus-chain-Ab12"
+        linked.mkdir()
+        (linked / "Game.exe").write_bytes(b"MZ decrypted")
+        (linked / "dxgi.dll").symlink_to(game / "dxgi.dll")
+        # Bare-prefix spelling, carrying nothing OptiScaler-related.
+        bare = root / "xodus-chain-Cd34"
+        bare.mkdir()
+        (bare / "Game.exe").write_bytes(b"MZ decrypted")
+        # A directory that is not a view at all.
+        (root / "vanguard").mkdir()
+
+        report = launchers.probe_chain_views(str(game))
+        names = sorted(v["name"] for v in report["views"])
+        check("both view spellings are found, and only views",
+              names == [".xodus-chain-Ab12", "xodus-chain-Cd34"], names)
+        view = next(v for v in report["views"]
+                    if v["name"] == ".xodus-chain-Ab12")
+        check("a linked marker says so and names its target",
+              view["markers"]["dxgi.dll"] == "link"
+              and str(game / "dxgi.dll") in (view["targets"]["dxgi.dll"] or ""),
+              view["markers"])
+        bare_view = next(v for v in report["views"]
+                         if v["name"] == "xodus-chain-Cd34")
+        check("a view without OptiScaler files reports none",
+              all(state is None for state in bare_view["markers"].values()),
+              bare_view["markers"])
+        check("the game folder is reported for comparison",
+              report["game_markers"]["dxgi.dll"] == "file",
+              report["game_markers"])
+        check("the view's own files are listed for the panel",
+              "Game.exe" in view["files"], view["files"])
+
+        # A folder with no views around it: the report is empty but honest.
+        quiet_root = Path(tempfile.mkdtemp(prefix="optiscaler-xodus-none-"))
+        quiet = quiet_root / "Game"
+        quiet.mkdir()
+        empty = launchers.probe_chain_views(str(quiet))
+        check("a folder with no views around it reports none",
+              empty["views"] == [], empty["views"])
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+        if quiet_root is not None:
+            shutil.rmtree(quiet_root, ignore_errors=True)
 
 def check_auto_plan():
     """Reading a wiki entry back out as instructions.
@@ -2927,6 +3007,7 @@ def main():
     check_launch_options_read()
     check_non_steam_shortcut()
     check_launcher_shortcuts()
+    check_xodus_chain_probe()
     check_asi_reporting()
     check_asi_staleness()
     check_reported_folder()

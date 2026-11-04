@@ -278,3 +278,90 @@ def resolve_shortcut(exe, start_dir=None, options="", name=None):
         return None
     return {"name": name or root.name, "path": str(root),
             "source": f"{launcher}-prefix" if launcher != "generic" else "launcher-prefix"}
+
+
+# Xodus launches encrypted games out of a temporary "chain view" it materializes
+# next to the install. The prefixes are the ones its runtime accepts in a launch
+# path; both spellings occur in the wild.
+CHAIN_VIEW_PREFIXES = (".xodus-chain-", "xodus-chain-")
+
+# The files an OptiScaler install can put in a game folder, under any of the
+# proxy names the wiki allows. A view carrying none of these cannot load
+# OptiScaler, whatever the launch options say.
+CHAIN_VIEW_MARKERS = (
+    "dxgi.dll", "version.dll", "winmm.dll", "d3d12.dll", "dinput8.dll",
+    "OptiScaler.ini", "optiscaler.ini",
+)
+
+
+def _marker_state(path):
+    """A marker file's state in one word: link, file, or None."""
+    try:
+        if path.is_symlink():
+            return "link"
+        if path.is_file():
+            return "file"
+    except OSError:
+        return None
+    return None
+
+
+def probe_chain_views(game_dir):
+    """Report the Xodus Nexus launch views that exist around a game folder.
+
+    Xodus's backend is closed, and the chain view it materializes per launch is
+    the directory the game's executable actually runs from -- so whether a
+    file this plugin installed after the fact was linked into it is what
+    decides whether OptiScaler can load at all in an encrypted game. Nothing
+    here can assume the answer: the views are read as found, while the game
+    runs, and each is reported with the OptiScaler files it carries, where
+    they link to, and a listing for the panel to show.
+
+    Views live in the root Xodus installs games into -- the game folder's
+    parent -- and are removed when the launch ends, so an empty report means
+    either "this game does not use one" or "the game is not running"; the
+    game folder itself is scanned too, because a view could in principle be
+    placed anywhere its runtime still accepts it.
+    """
+    game = Path(game_dir)
+    scanned = []
+    views = []
+    for root in (game.parent, game):
+        if not root.is_dir():
+            continue
+        try:
+            entries = sorted(root.iterdir(), key=lambda item: item.name)
+        except OSError:
+            continue
+        scanned.append(str(root))
+        for entry in entries:
+            if not entry.name.startswith(CHAIN_VIEW_PREFIXES):
+                continue
+            if not entry.is_dir():
+                continue
+            view = {
+                "name": entry.name,
+                "path": str(entry),
+                "files": [],
+                "markers": {},
+                "targets": {},
+            }
+            try:
+                names = sorted(child.name for child in entry.iterdir())
+            except OSError:
+                names = []
+            view["files"] = names[:40]
+            for marker in CHAIN_VIEW_MARKERS:
+                state = _marker_state(entry / marker)
+                view["markers"][marker] = state
+                if state == "link":
+                    try:
+                        view["targets"][marker] = str((entry / marker).readlink())
+                    except OSError:
+                        view["targets"][marker] = None
+            views.append(view)
+    game_markers = {
+        marker: _marker_state(game / marker) for marker in CHAIN_VIEW_MARKERS
+    }
+    return {"views": views, "game_markers": game_markers, "scanned": scanned}
+

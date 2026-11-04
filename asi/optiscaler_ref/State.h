@@ -8,6 +8,7 @@
 #include <inputs/FG/Streamline_Inputs.h>
 #include <inputs/FG/Streamline_Inputs_Sl1_Dx12.h>
 
+#include <chrono>
 #include <set>
 #include <deque>
 #include <mutex>
@@ -82,6 +83,7 @@ enum class FGNvngxReplacement : uint32_t
     Arturs,
     FFX,
     Combo,
+    Custom, // State::fgNvngxCustom folder in custom
 };
 
 enum class WorkingMode : uint32_t
@@ -172,6 +174,8 @@ class State
 
     std::string gameExe;
     std::string gameName;
+    // Counts from when the dll is attached to the process
+    std::chrono::steady_clock::time_point startTime { std::chrono::steady_clock::now() };
     std::string gameVersion;
     GameEngineType gameEngine = GameEngineType::Other;
     bool isWindows10 = false;
@@ -185,6 +189,9 @@ class State
 
     // Reseting on creation of new feature
     std::optional<bool> autoExposure;
+
+    // Passed through from the game's FFX create flags
+    bool dynamicResolution = false;
 
     // FG
     uint64_t fgLastFrame = 0;
@@ -203,15 +210,15 @@ class State
     // Frame Generation
     FGInput activeFgInput = FGInput::NoFG;
     FGOutput activeFgOutput = FGOutput::NoFG;
-    // This should be set to a non-None value only if all other requirements are met and nvngx can be used
     FGNvngxReplacement activeFgNvngx = FGNvngxReplacement::None;
+    std::string fgNvngxCustom;
+    std::string activeFgNvngxCustom;
 
     // Streamline FG inputs
     Sl_Inputs slFGInputs = {};
     Sl1_Inputs_Dx12 s_sl1FGInputs {};
 
     // OptiFG
-    bool fgPresentIsCalled = false;
     bool fgOnlyGenerated = false;
     bool fgHudlessCompare = false;
     bool fgChanged = false;
@@ -276,10 +283,13 @@ class State
     bool reflexLimitsFps = false;
     bool reflexShowWarning = false;
     bool rtssReflexInjection = false;
-    bool fakenvapiReloadLowLatency = false;
     UINT64 reflexFrameId = 0;
     UINT64 frameCount = 0;
     bool vkAntiLagSupported = false;
+
+    // AMD driver flip metering
+    bool amdFlipMeterCreated = false;
+    uint32_t amdFlipMeterMode = 0;
 
     // for realtime changes
     ankerl::unordered_dense::map<unsigned int, bool> changeBackend;
@@ -339,7 +349,7 @@ class State
     struct LoadedAsiPlugin
     {
         std::string name;
-        bool isOptiPatcher;
+        std::string version;
     };
     std::vector<LoadedAsiPlugin> loadedAsiPlugins {};
     std::mutex loadedAsiPluginsMutex;
@@ -414,6 +424,7 @@ class State
 
     bool isShuttingDown = false;
     std::set<PVOID> modulesToFree;
+    std::mutex modulesToFreeMutex;
 
     // menu warnings
     bool fgSettingsChanged = false;

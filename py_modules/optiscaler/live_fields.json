@@ -370,6 +370,11 @@
    "member": "FGDebugTearLines",
    "read": "Bool"
   },
+  "FSRFG.DisableFlipMetering": {
+   "kind": "bool",
+   "member": "FSRFGDisableFlipMetering",
+   "read": "Bool"
+  },
   "FSRFG.EnableWatermark": {
    "kind": "bool",
    "member": "FSRFGEnableWatermark",
@@ -680,6 +685,11 @@
    "member": "DisplayResolution",
    "read": "Bool"
   },
+  "InitFlags.DynamicResolution": {
+   "kind": "bool",
+   "member": "DynamicResolution",
+   "read": "Bool"
+  },
   "InitFlags.HDR": {
    "kind": "bool",
    "member": "HDR",
@@ -780,9 +790,19 @@
    "member": "FfxDx12SRPath",
    "read": "WString"
   },
+  "Libraries.FfxVkFGPath": {
+   "kind": "std::wstring",
+   "member": "FfxVkFGPath",
+   "read": "WString"
+  },
   "Libraries.FfxVkPath": {
    "kind": "std::wstring",
    "member": "FfxVkPath",
+   "read": "WString"
+  },
+  "Libraries.FfxVkSRPath": {
+   "kind": "std::wstring",
+   "member": "FfxVkSRPath",
    "read": "WString"
   },
   "Libraries.NvapiPath": {
@@ -1000,31 +1020,6 @@
    "member": "FpsCycleShortcutKey",
    "read": "Int"
   },
-  "Menu.FpsOverlayAlpha": {
-   "kind": "float",
-   "member": "FpsOverlayAlpha",
-   "read": "Float"
-  },
-  "Menu.FpsOverlayHorizontal": {
-   "kind": "bool",
-   "member": "FpsOverlayHorizontal",
-   "read": "Bool"
-  },
-  "Menu.FpsOverlayPos": {
-   "kind": "enum:FpsOverlayPos",
-   "member": "FpsOverlayPosition",
-   "read": "UInt"
-  },
-  "Menu.FpsOverlayType": {
-   "kind": "enum:FpsOverlay",
-   "member": "FpsOverlayType",
-   "read": "UInt"
-  },
-  "Menu.FpsScale": {
-   "kind": "float",
-   "member": "FpsScale",
-   "read": "Float"
-  },
   "Menu.FpsShortcutKey": {
    "kind": "int",
    "member": "FpsShortcutKey",
@@ -1045,10 +1040,10 @@
    "member": "OverlayMenu",
    "read": "Bool"
   },
-  "Menu.OverlaysUseTheme": {
-   "kind": "bool",
-   "member": "OverlaysUseTheme",
-   "read": "Bool"
+  "Menu.Rounding": {
+   "kind": "float",
+   "member": "MenuRounding",
+   "read": "Float"
   },
   "Menu.Scale": {
    "kind": "float",
@@ -1103,11 +1098,6 @@
   "NvApi.DisableOTA": {
    "kind": "bool",
    "member": "DisableOTA",
-   "read": "Bool"
-  },
-  "NvApi.ImASillyGooseThatIsAboutToMisuseReflex": {
-   "kind": "bool",
-   "member": "ImASillyGooseThatIsAboutToMisuseReflex",
    "read": "Bool"
   },
   "NvngxFG.DisableHudless": {

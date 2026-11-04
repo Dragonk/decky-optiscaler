@@ -1,6 +1,7 @@
 import { callable } from "@decky/api";
 import type {
   AutoPlanResult,
+  ChainViewProbe,
   ConfigResult,
   Fsr4Source,
   Fsr4Status,
@@ -177,6 +178,10 @@ export const switchUpscaler = callable<[targetDir: string, code: string], Action
 );
 export const getLiveLog = callable<[targetDir: string, lines?: number], { lines: string[] }>(
   "get_live_log"
+);
+
+export const probeChainViews = callable<[targetDir: string], ChainViewProbe>(
+  "probe_chain_views"
 );
 
 export const getMonitor = callable<[targetDir: string], MonitorReport>("get_monitor");

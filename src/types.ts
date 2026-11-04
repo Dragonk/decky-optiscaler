@@ -416,6 +416,21 @@ export interface OptipatcherStatus {
 }
 
 /** What the in-game live-control plugin reports about itself. */
+export interface ChainViewEntry {
+  name: string;
+  path: string;
+  files: string[];
+  markers: Record<string, "link" | "file" | null>;
+  targets: Record<string, string | null>;
+}
+
+/** Xodus Nexus launch views around a game folder, read while the game runs. */
+export interface ChainViewProbe {
+  views: ChainViewEntry[];
+  game_markers: Record<string, "link" | "file" | null>;
+  scanned: string[];
+}
+
 export interface LiveStatus {
   asi_installed: boolean;
   asi_available: boolean;

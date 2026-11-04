@@ -1,8 +1,8 @@
 import { ButtonItem, Field, PanelSection, PanelSectionRow } from "@decky/ui";
 import { useState } from "react";
-import { getLiveLog, installLive } from "../api";
+import { getLiveLog, installLive, probeChainViews } from "../api";
 import { liveFrameRates } from "../config/basic";
-import type { LiveStatus } from "../types";
+import type { ChainViewProbe, LiveStatus } from "../types";
 import { KeyValue, Mono, Notice } from "./Common";
 
 interface Props {
@@ -93,9 +93,59 @@ function Measurements({ status }: Readonly<{ status: LiveStatus }>) {
   );
 }
 
+/**
+ * What the Xodus launch-view probe found, in words.
+ *
+ * The probe reads the temporary directory an encrypted Xodus game actually
+ * starts from, and the only honest outcomes are three: views exist and carry
+ * OptiScaler's files (the game can load it), views exist and carry none (the
+ * backend did not link what this plugin installed, and no launch option can
+ * fix that), or no view exists at all (the game starts from its own folder
+ * and an installed dxgi.dll loads from there).
+ */
+function XodusProbeResult({ probe }: Readonly<{ probe: ChainViewProbe }>) {
+  if (probe.views.length === 0) {
+    return (
+      <div>
+        No chain views found. A view exists only while its game is running;
+        with none, the game starts straight from its own folder and a
+        dxgi.dll installed there loads from it.
+      </div>
+    );
+  }
+  return (
+    <div>
+      {probe.views.map((view) => {
+        const found = Object.entries(view.markers).filter(
+          ([, state]) => state !== null
+        );
+        const carries = found
+          .map(([name, state]) =>
+            state === "link" && view.targets[name]
+              ? name + " -> " + view.targets[name]
+              : name
+          )
+          .join(", ");
+        return (
+          <div key={view.path} style={{ marginBottom: "4px" }}>
+            <Mono>{view.name}</Mono>:{" "}
+            {found.length === 0
+              ? "none of OptiScaler's files -- the game cannot load OptiScaler from this view"
+              : carries}
+          </div>
+        );
+      })}
+      {Object.values(probe.game_markers).every((state) => state === null) ? (
+        <div>No OptiScaler files in the game folder either -- install first.</div>
+      ) : null}
+    </div>
+  );
+}
+
 export function LivePanel({ targetDir, status, onChanged }: Props) {
   const [busy, setBusy] = useState(false);
   const [log, setLog] = useState<string[] | null>(null);
+  const [probe, setProbe] = useState<ChainViewProbe | null>(null);
 
   if (!status) return null;
 
@@ -219,6 +269,38 @@ export function LivePanel({ targetDir, status, onChanged }: Props) {
           >
             {log ? "Refresh diagnostics" : "Show diagnostics"}
           </ButtonItem>
+        </PanelSectionRow>
+      ) : null}
+
+      {/* Xodus Nexus runs encrypted games out of a temporary chain view -- the
+          directory the game's executable actually starts from. The backend is
+          closed, so whether the files this plugin installed were linked into
+          that view can only be read, not assumed. Run it while the game is
+          running; a view stops existing when the launch ends. */}
+      <PanelSectionRow>
+        <ButtonItem
+          layout="below"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              setProbe(await probeChainViews(targetDir));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {probe ? "Re-check Xodus launch views" : "Check Xodus launch views"}
+        </ButtonItem>
+      </PanelSectionRow>
+
+      {probe ? (
+        <PanelSectionRow>
+          <Field label="Xodus launch views" bottomSeparator="none">
+            <div style={{ fontSize: "11px", opacity: 0.8 }}>
+              <XodusProbeResult probe={probe} />
+            </div>
+          </Field>
         </PanelSectionRow>
       ) : null}
 

@@ -3,6 +3,34 @@
 Newest first. Each release ships `Decky OptiScaler.zip` for Decky Loader's
 *Install from URL* (Developer mode), and bundles **OptiScaler 10.0.0-pre1** (nightly 2026-11-04).
 
+## [0.0.13] - 2026-11-04
+
+### Fixed
+
+- **Live control said "not connected" and the live watermark never
+  appeared.** The ASI backend mirrors OptiScaler's `Config` struct at fixed
+  offsets, and those offsets moved: the bundled nightly (2026-11-04) carries
+  108 lines of `Config.h` changes the pinned pre-release headers the
+  backend was built against did not have — the FPS-overlay presets and
+  positions, the flip-metering pair, per-name custom upscaler indexes. Every
+  live read then failed validation against the shipped runtime. The headers
+  are re-pinned to the nightly's exact commit (5eb4bfab, 2026-11-03), the
+  layout generator and the self-test learned the new declarations, and the
+  ASI is rebuilt from them. Live control reconnects and the watermark toggle
+  works again; reinstall live control in the game to pick up the new ASI.
+
+### Added
+
+- **Xodus Nexus: encrypted games can be diagnosed, not guessed at.** Xodus
+  starts encrypted games out of a temporary chain view it materializes next
+  to the install and tears down at exit, and its backend scrubs
+  `WINEDLLOVERRIDES` inherited from Steam's launch options — only the
+  options configured inside Xodus itself reach the game's Wine. The live
+  panel therefore has *Check Xodus launch views*: run it while the game is
+  running and it reads the view the executable actually started from,
+  reporting which of OptiScaler's files the view carries and where they
+  link. That is the one honest answer to whether a dxgi.dll will load in an
+  encrypted game that the closed backend permits.
 ## [0.0.12] - 2026-11-04
 
 ### Fixed
