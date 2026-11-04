@@ -48,8 +48,12 @@ installing works offline and every game gets the same build.
   which of OptiScaler's files were linked into it and where they point. Live
   control follows the game in there too: status, log and commands are read
   from and written to the view's copy of the game folder, so an encrypted
-  game is steered live like any other. Install live control with the game
-  closed, then start it: a view only links what existed at launch.
+  game is steered live like any other. The folder managed is the one the
+  launcher's own state file says the game's executable runs from — package
+  installs keep that executable encrypted, invisible to any folder scan —
+  and a view the game's filesystem cannot hold lands in the system's
+  temporary directory, which is searched too. Install live control with
+  the game closed, then start it: a view only links what existed at launch.
 - **Sets the game up from the wiki, online or not.** Your game is matched against the OptiScaler
   [Compatibility List](https://github.com/optiscaler/OptiScaler/wiki/Compatibility-List), with a
   search box to pin the right entry. A copy of the list ships with the plugin and the last

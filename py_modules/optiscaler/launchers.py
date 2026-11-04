@@ -35,7 +35,9 @@ confidence falls back to the plain shortcut handling.
 """
 
 import json
+import os
 import re
+import tempfile
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -172,15 +174,67 @@ def _xodus_state(script):
     return data if isinstance(data, dict) else None
 
 
+def _case_child(folder, wanted):
+    """The child of *folder* matching *wanted*, case-insensitively as a fallback.
+
+    Windows paths do not care about case; the filesystem the game sits on
+    does, and the state file spells the executable the way the game's own
+    manifest does -- not always the spelling the folders on disk carry.
+    """
+    candidate = folder / wanted
+    if candidate.exists():
+        return candidate
+    wanted = wanted.lower()
+    try:
+        entries = list(folder.iterdir())
+    except OSError:
+        return None
+    for entry in entries:
+        if entry.name.lower() == wanted and entry.is_dir():
+            return entry
+    return None
+
+
+def _xodus_exe_dir(folder, executable):
+    """The folder a Xodus game's executable runs from, or None.
+
+    The state file names the executable the way the game's own manifest
+    does, with Windows separators -- and that folder is where OptiScaler
+    has to sit. An installed package keeps its executable as an encrypted
+    blob no folder scan can find, while the folder the state names is the
+    one the launch view puts it in, decrypted, when the game runs.
+    """
+    if not isinstance(executable, str) or not executable.strip():
+        return None
+    relative = executable.replace(chr(92), "/").strip().strip("/")
+    parts = [part for part in relative.split("/") if part not in ("", ".")]
+    if not parts or ".." in parts:
+        return None
+    current = Path(folder)
+    for part in parts[:-1]:
+        current = _case_child(current, part)
+        if current is None:
+            return None
+    return current if current.is_dir() else None
+
+
 def _xodus_game(data, game_id, name=None):
-    """The installed game a 16-hex shortcut id names, from the state file."""
+    """The installed game a 16-hex shortcut id names, from the state file.
+
+    When the state names the game's executable, the folder that
+    executable runs from is the one to manage: it is where OptiScaler has
+    to sit, and for an installed package it is the only place that
+    folder can be learned from at all. Without it the install folder
+    answers, as before.
+    """
     for game in data.get("games") or []:
         if not isinstance(game, dict) or game.get("id") != game_id:
             continue
         folder = game.get("path")
         if folder and Path(folder).is_dir():
+            exe_dir = _xodus_exe_dir(folder, game.get("executable"))
             return {"name": game.get("title") or name or "Xodus Nexus game",
-                    "path": str(folder), "source": "xodus"}
+                    "path": str(exe_dir or folder), "source": "xodus"}
     return None
 
 
@@ -331,6 +385,9 @@ def probe_chain_views(game_dir):
         if node == node.parent:
             break
         node = node.parent
+    for temp_root in _temp_view_roots():
+        if str(temp_root) not in scanned:
+            scanned.append(str(temp_root))
     views = []
     for view, inside in launch_views_around(game_dir):
         entry = {
@@ -385,7 +442,47 @@ def _view_mirrors(inside, node):
     return False
 
 
-def launch_views_around(target_dir, depth=4):
+def _temp_view_roots():
+    """The directories a launch view falls back to.
+
+    A game installed on a filesystem that cannot hold the view -- one that
+    refuses private permissions or symlinks -- gets its view in the
+    system's temporary directory instead, without the dot in the prefix.
+    """
+    roots = [Path(tempfile.gettempdir())]
+    if "/tmp" not in [str(root) for root in roots]:
+        roots.append(Path("/tmp"))
+    return roots
+
+
+def _mirrored_root(view):
+    """The game folder a fallback view mirrors, from what it links to.
+
+    A fallback view sits in the temporary directory, not next to the
+    folder it mirrors, so the only thing that can name that folder is the
+    view itself: the backend symlinks the game's own files into it, and
+    the folders those links come from share the one they mirror.
+    """
+    parents = []
+    try:
+        entries = list(view.iterdir())
+    except OSError:
+        return None
+    for entry in entries:
+        try:
+            if entry.is_symlink():
+                parents.append(entry.resolve().parent)
+        except OSError:
+            continue
+    if not parents:
+        return None
+    try:
+        return Path(os.path.commonpath([str(parent) for parent in parents]))
+    except ValueError:
+        return None
+
+
+def launch_views_around(target_dir, depth=4, temp_roots=None):
     """The Xodus launch views a running game may have started from.
 
     A view is created next to the folder the backend was told the game
@@ -393,8 +490,13 @@ def launch_views_around(target_dir, depth=4):
     folder of the game's executable, several levels below it. So every
     ancestor of the target is asked, up to *depth* levels up, and each
     view is returned with the folder inside it that mirrors the target.
-    Only views mirroring the folder they sit beside are returned: a view
-    exists only while its game runs, so this is asked fresh every time.
+    Only views mirroring the folder they sit beside are returned.
+
+    When the game's own filesystem cannot hold the view, the backend
+    falls back to the system's temporary directory, so those are asked
+    too -- a view there is only taken when the game's own files link
+    into it, which is what names the folder it mirrors. A view exists
+    only while its game runs, so this is asked fresh every time.
     """
     target = Path(target_dir)
     found = []
@@ -422,5 +524,28 @@ def launch_views_around(target_dir, depth=4):
         if node == node.parent:
             break
         node = parent
+    roots = _temp_view_roots() if temp_roots is None else [Path(root) for root in temp_roots]
+    for temp_root in roots:
+        try:
+            entries = sorted(temp_root.iterdir(), key=lambda item: item.name)
+        except OSError:
+            continue
+        for entry in entries:
+            if not entry.name.startswith(CHAIN_VIEW_PREFIXES):
+                continue
+            if not entry.is_dir():
+                continue
+            if any(entry == view for view, _inside in found):
+                continue
+            mirrored = _mirrored_root(entry)
+            if mirrored is None:
+                continue
+            try:
+                inside = entry / target.relative_to(mirrored)
+            except ValueError:
+                continue
+            if not inside.is_dir():
+                continue
+            found.append((entry, inside))
     return found
 

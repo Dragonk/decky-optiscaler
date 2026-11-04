@@ -3,6 +3,28 @@
 Newest first. Each release ships `Decky OptiScaler.zip` for Decky Loader's
 *Install from URL* (Developer mode), and bundles **OptiScaler 10.0.0-pre1** (nightly 2026-11-04).
 
+## [0.0.16] - 2026-11-04
+
+### Fixed
+
+- **Xodus games installed with nothing where it counts.** A Xodus game
+  resolved to the folder its state file names — the install root — while
+  the state also names the executable the game runs, its folder several
+  levels below (Binaries/WinGDK for a package install, whose executable
+  is an encrypted blob no folder scan can find). OptiScaler was installed
+  into the install root, where nothing loads it. The folder the state's
+  executable names is now the one managed, matched case-insensitively
+  against the folders on disk; without it the install folder answers,
+  as before.
+- **Launch views on filesystems that cannot hold them were never found.**
+  When the game's own filesystem refuses private permissions or
+  symlinks — an SD card, an exFAT or NTFS drive — the backend creates
+  the view in the system's temporary directory instead, without the dot
+  in the prefix. Those directories are now searched too, and a view
+  there is only taken when the game's own files link into it, which is
+  what names the folder it mirrors. Live status, commands and live
+  control installs all follow the game there.
+
 ## [0.0.15] - 2026-11-04
 
 ### Fixed

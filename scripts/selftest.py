@@ -1427,18 +1427,35 @@ def check_launcher_shortcuts():
         check("a GOG shortcut resolves to the prefix's GOG Games root",
               found and found["source"] == "gog-prefix" and found["path"] == str(gog_game.parent), found)
 
-        # Xodus Nexus: native Linux, no prefix at all. The state file next to
-        # the script the shortcut runs names the game's folder exactly.
+        # Xodus Nexus: native Linux, no prefix at all. The state file next
+        # to the script the shortcut runs names the game -- and the
+        # executable its manifest points at, with Windows separators and
+        # a casing the folders on disk do not have to match. The folder
+        # that executable runs from is the one to manage.
         nexus = home / ".config" / "xodus-nexus"
         (nexus / "shortcuts").mkdir(parents=True)
         (nexus / "shortcuts" / "launch-game").write_text("#!/bin/sh\n")
         nexus_root = home / "Games" / "Xodus Nexus"
         nexus_game = nexus_root / "DOOM Eternal"
-        nexus_game.mkdir(parents=True)
-        (nexus_game / "DOOMEternalx64vk.exe").write_bytes(b"MZ")
+        nexus_exe = nexus_game / "Binaries" / "WinGDK"
+        nexus_exe.mkdir(parents=True)
+        (nexus_exe / "DOOMEternalx64vk.exe").write_bytes(b"MZ")
+        nexus_plain = nexus_root / "Imported Game"
+        nexus_plain.mkdir()
+        (nexus_plain / "game.exe").write_bytes(b"MZ")
+        nexus_broken = nexus_root / "Partly There"
+        nexus_broken.mkdir()
         (nexus / "launcher-state.json").write_text(json.dumps({
-            "games": [{"id": "80454a304a71cb22", "title": "DOOM Eternal",
-                       "path": str(nexus_game)}],
+            "games": [
+                {"id": "80454a304a71cb22", "title": "DOOM Eternal",
+                 "path": str(nexus_game),
+                 "executable": "binaries" + chr(92) + "wingdk" + chr(92) + "DOOMEternalx64vk.exe"},
+                {"id": "80454a304a71cb23", "title": "Imported Game",
+                 "path": str(nexus_plain)},
+                {"id": "80454a304a71cb24", "title": "Partly There",
+                 "path": str(nexus_broken),
+                 "executable": "Missing" + chr(92) + "Dir" + chr(92) + "game.exe"},
+            ],
             "settings": {"installRoot": str(nexus_root)},
         }))
         launch_nexus = str(nexus / "shortcuts" / "launch-nexus")
@@ -1447,8 +1464,21 @@ def check_launcher_shortcuts():
                          "/bin/sh", f'"{nexus / "shortcuts"}"',
                          f"'{script}' '80454a304a71cb22'")
         found = steam_mod.find_by_appid(home, appid)
-        check("a Xodus Nexus shortcut resolves to the game its state file names",
-              found and found["source"] == "xodus" and found["path"] == str(nexus_game), found)
+        check("a Xodus shortcut resolves to the folder its executable runs from",
+              found and found["source"] == "xodus"
+              and found["path"] == str(nexus_exe), found)
+        appid = shortcut(-1234567814, "Imported Game",
+                         "/bin/sh", f'"{nexus / "shortcuts"}"',
+                         f"'{script}' '80454a304a71cb23'")
+        found = steam_mod.find_by_appid(home, appid)
+        check("a Xodus game with no executable recorded resolves to its install folder",
+              found and found["path"] == str(nexus_plain), found)
+        appid = shortcut(-1234567815, "Partly There",
+                         "/bin/sh", f'"{nexus / "shortcuts"}"',
+                         f"'{script}' '80454a304a71cb24'")
+        found = steam_mod.find_by_appid(home, appid)
+        check("an executable naming a folder that is not there falls back to the install folder",
+              found and found["path"] == str(nexus_broken), found)
 
         appid = shortcut(-1234567805, "Nexus Launcher",
                          "/bin/sh", f'"{nexus / "shortcuts"}"',
@@ -2221,6 +2251,7 @@ def check_xodus_chain_probe():
     print("Xodus chain views")
     root = Path(tempfile.mkdtemp(prefix="optiscaler-xodus-"))
     quiet_root = None
+    temp_root = None
     try:
         game = root / "MyGame"
         game.mkdir()
@@ -2325,6 +2356,46 @@ def check_xodus_chain_probe():
         check("the live channel reads the status from inside a deeper view",
               deep_status["state"] == "ready", deep_status["state"])
 
+        # A game on a filesystem that cannot hold a launch view: the
+        # backend falls back to the temporary directory, without the dot
+        # in the prefix. The view is found through what it links to, and
+        # only when it mirrors this game -- another game's view in the
+        # same place is not mistaken for this one's.
+        temp_root = Path(tempfile.mkdtemp(prefix="optiscaler-xodus-tmp-"))
+        fallback = temp_root / "xodus-chain-Hi78"
+        fallback.mkdir()
+        (deep_root / "data.pak").write_bytes(b"pak")
+        (fallback / "data.pak").symlink_to(deep_root / "data.pak")
+        (fallback / "Binaries").mkdir()
+        (fallback / "Binaries" / "Win64").mkdir()
+        (fallback / "Binaries" / "Win64" / "dxgi.dll").symlink_to(deep / "dxgi.dll")
+        decoy = temp_root / "xodus-chain-Hi79"
+        decoy.mkdir()
+        (decoy / "data.pak").symlink_to(game / "data.pak")
+        real_roots = launchers._temp_view_roots
+        launchers._temp_view_roots = lambda: [temp_root]
+        try:
+            names = {view.name: str(inside)
+                     for view, inside in launchers.launch_views_around(str(deep))}
+            check("a fallback view in the temporary directory is found through what it links to",
+                  names.get("xodus-chain-Hi78") == str(fallback / "Binaries" / "Win64"),
+                  names)
+            check("another game's fallback view is not mistaken for this one",
+                  "xodus-chain-Hi79" not in names, names)
+            fb_status_file = fallback / "Binaries" / "Win64" / "decky_optiscaler_live.status"
+            fb_status_file.write_text("status fallback")
+            os.utime(fb_status_file, (2000000500, 2000000500))
+            fb_status = live.status(str(deep))
+            check("the live channel reads the status from a fallback view",
+                  fb_status["state"] == "fallback", fb_status["state"])
+            fb_report = launchers.probe_chain_views(str(deep))
+            check("the probe reports a fallback view like any other",
+                  any(v["name"] == "xodus-chain-Hi78"
+                      and v["inside"] == str(fallback / "Binaries" / "Win64")
+                      for v in fb_report["views"]), fb_report["views"])
+        finally:
+            launchers._temp_view_roots = real_roots
+
         # A folder with no views around it: the report is empty but honest.
         quiet_root = Path(tempfile.mkdtemp(prefix="optiscaler-xodus-none-"))
         quiet = quiet_root / "Game"
@@ -2336,6 +2407,8 @@ def check_xodus_chain_probe():
         shutil.rmtree(root, ignore_errors=True)
         if quiet_root is not None:
             shutil.rmtree(quiet_root, ignore_errors=True)
+        if temp_root is not None:
+            shutil.rmtree(temp_root, ignore_errors=True)
 
 def check_auto_plan():
     """Reading a wiki entry back out as instructions.
