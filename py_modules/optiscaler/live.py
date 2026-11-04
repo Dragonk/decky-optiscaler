@@ -227,6 +227,14 @@ LIVE_FIELDS = {
     "Sharpness.OverrideSharpness": LiveField("OverrideSharpness", "bool", _bool),
     "Sharpness.Sharpness": LiveField("Sharpness", "f32", _float),
     "Menu.ShowFps": LiveField("ShowFps", "bool", _bool),
+
+    # The watermarks are drawn by the closed-source FSR 4 / FG runtimes, which
+    # read the MLSR-WATERMARK / MLFI-WATERMARK process variables as the game
+    # runs; the ASI mirrors the members into them every loop the same way the
+    # overlay's own checkboxes do, so toggling them from the panel now takes
+    # effect at once instead of on the next launch.
+    "FSR.Fsr4EnableWatermark": LiveField("Fsr4EnableWatermark", "bool", _bool),
+    "FSRFG.EnableWatermark": LiveField("FSRFGEnableWatermark", "bool", _bool),
 }
 
 
@@ -879,18 +887,36 @@ def log_tail(target_dir, lines=40):
         return []
 
 
-def opti_log_tail(target_dir, lines=40):
-    """The tail of OptiScaler's own log, once live control switched it on.
+def opti_log_tail(target_dir, lines=40, head_lines=18):
+    """Head and tail of OptiScaler's own log, once live control switched it on.
 
     The ASI's log says what the in-game plugin did; OptiScaler's is the only
     place that says whether OptiScaler searched its plugins folder at all,
     which one it searched, and what LoadLibrary answered when it found the
-    module. Between them they answer both halves of "not connected".
+    module. Between them they answer both halves of "not connected". The head
+    is kept as well because the first lines carry the version banner and the
+    paths the running build resolved -- the one place that says which build is
+    actually in the game, and the first thing a trace-level log buries.
     """
     path = _newest_control_file(target_dir, "OptiScaler.log")
     if path is None:
         return []
     try:
-        return path.read_text(encoding="utf-8", errors="replace").splitlines()[-lines:]
+        size = path.stat().st_size
+        if size <= 512 * 1024:
+            all_lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+            if len(all_lines) <= lines + head_lines:
+                return all_lines
+            skipped = len(all_lines) - lines - head_lines
+            return (all_lines[:head_lines]
+                    + ["... (%d lines in between) ..." % skipped]
+                    + all_lines[-lines:])
+        with path.open("rb") as f:
+            head = f.read(64 * 1024).decode("utf-8", errors="replace").splitlines()
+            f.seek(max(0, size - 256 * 1024))
+            tail = f.read().decode("utf-8", errors="replace").splitlines()
+        return (head[:head_lines]
+                + ["... (%d bytes total) ..." % size]
+                + tail[-lines:])
     except OSError:
         return []

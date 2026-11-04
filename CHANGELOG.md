@@ -3,6 +3,30 @@
 Newest first. Each release ships `Decky OptiScaler.zip` for Decky Loader's
 *Install from URL* (Developer mode), and bundles **OptiScaler 10.0.0-pre1** (nightly 2026-11-04).
 
+## [0.0.19] - 2026-11-04
+
+### Added
+
+- **The FSR 4 and FG watermarks can now be toggled live.** The overlay's
+  checkboxes work without a restart because the watermarks are drawn by
+  closed-source native runtimes that read the MLSR-WATERMARK /
+  MLFI-WATERMARK process variables as the game runs; the live-control ASI now
+  mirrors the two Config members into those variables every loop, exactly the
+  way the overlay does, so the panel's toggles behave like the overlay's own
+  instead of waiting for the next launch.
+
+### Changed
+
+- **A failed Config scan now says what it found instead of one flat line.**
+  "Not connected" past the discovery window was indistinguishable from a
+  plugin that never loaded at all. The scan now reports how far the
+  best-matching candidate got -- which check it failed and the value it
+  observed there -- plus the OptiScaler module's file and byte size and
+  one-time lines when the State and the backend map are located, so a single
+  diagnostics paste names the divergence instead of another round of guessing.
+  Show diagnostics keeps the head of OptiScaler's log too, where its version
+  banner lives.
+
 ## [0.0.18] - 2026-11-04
 
 ### Fixed

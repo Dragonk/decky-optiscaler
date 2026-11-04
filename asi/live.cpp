@@ -252,28 +252,49 @@ static int ModuleDataSections(HMODULE mod, Section* out, int maxOut) {
 // hotkeys, font size, sharpness). Those checks are spread from the middle of
 // the struct to its end, so any mis-parsed member would break at least one.
 
-static bool LooksLikeConfig(const Config* cfg) {
-    if (!Readable(cfg, sizeof(Config))) return false;
+// Stage codes for the Config scan, ordered by how far a candidate got
+// through validation: the smaller the number the closer it came to passing,
+// so the best candidate seen across all sixty attempts names the exact check
+// the running OptiScaler build failed -- a wrong default means a value moved,
+// a miss at CFG_FILENAME means the member order moved, and CFG_NOT_SCANNED
+// means the data sections held no pointer that even looked like _config.
+enum {
+    CFG_OK = 0,
+    CFG_REACTIVE = 1,    // the last check: the DlssReactiveMaskBias default
+    CFG_SHARPNESS = 2,
+    CFG_FONT = 3,
+    CFG_FGKEY = 4,
+    CFG_FPSKEY = 5,
+    CFG_SHORTCUT = 6,
+    CFG_ABSNAME = 7,
+    CFG_FILENAME = 8,
+    CFG_UNREADABLE = 9,
+    CFG_NOT_SCANNED = 10
+};
 
+static int g_cfgBestStage = CFG_NOT_SCANNED;
+static uintptr_t g_cfgBestAddr = 0;
+static unsigned long long g_cfgCandidates = 0;  // the last pass's usable pointers
+
+static int ConfigMatchStage(const Config* cfg) {
     wchar16 buf[MAX_PATH];
-    if (!ReadStdWString(&cfg->fileName, buf, MAX_PATH)) return false;
-    if (!WideEqualsAscii(buf, "OptiScaler.ini")) return false;
-
-    if (!ReadStdWString(&cfg->absoluteFileName.text, buf, MAX_PATH)) return false;
-    if (!WideEndsWithAsciiNoCase(buf, "OptiScaler.ini")) return false;
-
-    // Compile-time defaults, sampled across the struct.
-    if (cfg->ShortcutKey.defaultValue != VK_INSERT) return false;
-    if (cfg->FpsShortcutKey.defaultValue != VK_PRIOR) return false;
-    if (cfg->FGShortcutKey.defaultValue != VK_END) return false;
-    if (cfg->FontSize.defaultValue != 14.0f) return false;
-    if (cfg->Sharpness.defaultValue != 0.4f) return false;
-    if (cfg->DlssReactiveMaskBias.defaultValue != 0.45f) return false;
-    return true;
+    if (!Readable(cfg, sizeof(Config))) return CFG_UNREADABLE;
+    if (!ReadStdWString(&cfg->fileName, buf, MAX_PATH)) return CFG_FILENAME;
+    if (!WideEqualsAscii(buf, "OptiScaler.ini")) return CFG_FILENAME;
+    if (!ReadStdWString(&cfg->absoluteFileName.text, buf, MAX_PATH)) return CFG_ABSNAME;
+    if (!WideEndsWithAsciiNoCase(buf, "OptiScaler.ini")) return CFG_ABSNAME;
+    if (cfg->ShortcutKey.defaultValue != VK_INSERT) return CFG_SHORTCUT;
+    if (cfg->FpsShortcutKey.defaultValue != VK_PRIOR) return CFG_FPSKEY;
+    if (cfg->FGShortcutKey.defaultValue != VK_END) return CFG_FGKEY;
+    if (cfg->FontSize.defaultValue != 14.0f) return CFG_FONT;
+    if (cfg->Sharpness.defaultValue != 0.4f) return CFG_SHARPNESS;
+    if (cfg->DlssReactiveMaskBias.defaultValue != 0.45f) return CFG_REACTIVE;
+    return CFG_OK;
 }
 
 static Config* FindConfig(HMODULE opti) {
     ScopedScanCache cache;
+    g_cfgCandidates = 0;
     Section sections[16];
     int n = ModuleDataSections(opti, sections, 16);
     for (int s = 0; s < n; s++) {
@@ -287,10 +308,102 @@ static Config* FindConfig(HMODULE opti) {
             uintptr_t address = (uintptr_t) candidate;
             if (address < 0x10000 || address > 0x7FFFFFFFFFFFull) continue;
             if (address & 0xF) continue;  // operator new is 16-byte aligned
-            if (LooksLikeConfig(candidate)) return candidate;
+            g_cfgCandidates++;
+            int stage = ConfigMatchStage(candidate);
+            if (stage == CFG_OK) return candidate;
+            if (stage < g_cfgBestStage) {
+                g_cfgBestStage = stage;
+                g_cfgBestAddr = address;
+            }
         }
     }
     return NULL;
+}
+
+/** Name of the check a scan stage died on, for the failure log. */
+static const char* ConfigStageName(int stage) {
+    switch (stage) {
+        case CFG_OK: return "passed";
+        case CFG_REACTIVE: return "DlssReactiveMaskBias default";
+        case CFG_SHARPNESS: return "Sharpness default";
+        case CFG_FONT: return "FontSize default";
+        case CFG_FGKEY: return "FGShortcutKey default";
+        case CFG_FPSKEY: return "FpsShortcutKey default";
+        case CFG_SHORTCUT: return "ShortcutKey default";
+        case CFG_ABSNAME: return "absoluteFileName";
+        case CFG_FILENAME: return "fileName";
+        case CFG_UNREADABLE: return "unreadable Config window";
+        default: return "no pointer looked like the singleton";
+    }
+}
+
+/** What the best failing candidate actually held, so a diagnostics paste says
+ *  which value diverged rather than just that one did. Only the check the
+ *  candidate died on is reported: past that point the layout is wrong, and
+ *  anything read further in would be garbage presented as data. */
+static void DescribeConfigCandidate() {
+    if (!g_cfgBestAddr || g_cfgBestStage < CFG_REACTIVE) return;
+    const Config* c = (const Config*) g_cfgBestAddr;
+    wchar16 buf[MAX_PATH];
+    char shown[MAX_PATH * 2];
+    size_t at = 0;
+    if (g_cfgBestStage >= CFG_FILENAME) {
+        if (ReadStdWString(&c->fileName, buf, MAX_PATH)) {
+            for (size_t i = 0; buf[i] && at + 4 < sizeof(shown); i++) {
+                unsigned short v = (unsigned short) buf[i];
+                if (v >= 0x20 && v < 0x7f) {
+                    shown[at++] = (char) v;
+                } else {
+                    int n = snprintf(shown + at, 5, "[%02X]", (unsigned) v);
+                    if (n < 0) n = 0;
+                    if (n > 4) n = 4;
+                    at += (size_t) n;
+                }
+            }
+            shown[at] = 0;
+            LogLine("  best candidate's fileName: \"%s\"", shown);
+        } else {
+            LogLine("  best candidate's fileName did not decode as a string");
+        }
+        return;
+    }
+    if (g_cfgBestStage >= CFG_ABSNAME) {
+        if (ReadStdWString(&c->absoluteFileName.text, buf, MAX_PATH)) {
+            NarrowCopy(shown, sizeof(shown), (const wchar_t*) buf);
+            LogLine("  best candidate's absoluteFileName: \"%s\"", shown);
+        } else {
+            LogLine("  best candidate's absoluteFileName did not decode as a string");
+        }
+        return;
+    }
+    switch (g_cfgBestStage) {
+        case CFG_SHORTCUT:
+            LogLine("  observed ShortcutKey default: %d (expected %d)",
+                    (int) c->ShortcutKey.defaultValue, (int) VK_INSERT);
+            break;
+        case CFG_FPSKEY:
+            LogLine("  observed FpsShortcutKey default: %d (expected %d)",
+                    (int) c->FpsShortcutKey.defaultValue, (int) VK_PRIOR);
+            break;
+        case CFG_FGKEY:
+            LogLine("  observed FGShortcutKey default: %d (expected %d)",
+                    (int) c->FGShortcutKey.defaultValue, (int) VK_END);
+            break;
+        case CFG_FONT:
+            LogLine("  observed FontSize default: %.3f (expected 14.000)",
+                    (double) c->FontSize.defaultValue);
+            break;
+        case CFG_SHARPNESS:
+            LogLine("  observed Sharpness default: %.3f (expected 0.400)",
+                    (double) c->Sharpness.defaultValue);
+            break;
+        case CFG_REACTIVE:
+            LogLine("  observed DlssReactiveMaskBias default: %.3f (expected 0.450)",
+                    (double) c->DlssReactiveMaskBias.defaultValue);
+            break;
+        default:
+            break;
+    }
 }
 
 // ------------------------------------------------------------- State lookup --
@@ -1834,6 +1947,46 @@ static void DiscoverStateExtras() {
     }
 }
 
+// ------------------------------------------------ watermark environment sync --
+
+// The FSR 4 and FG watermarks are drawn by OptiScaler's closed-source native
+// runtimes, not by OptiScaler itself, and they read the MLSR-WATERMARK /
+// MLFI-WATERMARK process variables while the game runs. The overlay toggles
+// them without a restart by writing the Config member and mirroring it into
+// those variables (Util::SetFlagEnvVar: the Win32 environment plus ucrtbase's
+// _wputenv_s), so this replays the same mirroring whenever either member
+// moves -- which makes a plain "set ... bool" command behave exactly like the
+// overlay's own checkbox. -1 means "not synced in this process yet".
+static int g_watermarkFsr4 = -1;
+static int g_watermarkFg = -1;
+
+static void SetFlagEnvVar(const wchar_t* name, bool enabled) {
+    SetEnvironmentVariableW(name, enabled ? L"1" : nullptr);
+    HMODULE ucrt = GetModuleHandleW(L"ucrtbase.dll");
+    if (!ucrt) return;
+    typedef int (*putenv_s_fn)(const wchar_t*, const wchar_t*);
+    putenv_s_fn putenv_s = (putenv_s_fn) GetProcAddress(ucrt, "_wputenv_s");
+    if (putenv_s) putenv_s(name, enabled ? L"1" : L"");
+}
+
+static void SyncWatermarkEnv() {
+    if (!g_config) return;
+    if (!Readable(&g_config->Fsr4EnableWatermark, sizeof(g_config->Fsr4EnableWatermark))) return;
+    if (!Readable(&g_config->FSRFGEnableWatermark, sizeof(g_config->FSRFGEnableWatermark))) return;
+    int fsr4 = g_config->Fsr4EnableWatermark.value_or_default() ? 1 : 0;
+    int fg = g_config->FSRFGEnableWatermark.value_or_default() ? 1 : 0;
+    if (fsr4 != g_watermarkFsr4) {
+        g_watermarkFsr4 = fsr4;
+        SetFlagEnvVar(L"MLSR-WATERMARK", fsr4 != 0);
+        LogLine("Fsr4EnableWatermark = %d, MLSR-WATERMARK synced", fsr4);
+    }
+    if (fg != g_watermarkFg) {
+        g_watermarkFg = fg;
+        SetFlagEnvVar(L"MLFI-WATERMARK", fg != 0);
+        LogLine("FSRFGEnableWatermark = %d, MLFI-WATERMARK synced", fg);
+    }
+}
+
 /** Poll ticks between status rewrites; the loop sleeps 200ms per tick. */
 #define HEARTBEAT_TICKS 15  /* ~3s */
 
@@ -1862,6 +2015,13 @@ static DWORD WINAPI Worker(LPVOID) {
     wchar_t dllPath[MAX_PATH];
     GetModuleFileNameW(opti, dllPath, MAX_PATH);
     LogLine("OptiScaler module at %p", (void*) opti);
+    char dllShown[MAX_PATH];
+    NarrowCopy(dllShown, sizeof(dllShown), dllPath);
+    WIN32_FILE_ATTRIBUTE_DATA dllInfo;
+    unsigned long long dllBytes = 0;
+    if (GetFileAttributesExW(dllPath, GetFileExInfoStandard, &dllInfo))
+        dllBytes = ((unsigned long long) dllInfo.nFileSizeHigh << 32) | dllInfo.nFileSizeLow;
+    LogLine("OptiScaler module file: %s (%llu bytes)", dllShown, dllBytes);
 
     char exePath[MAX_PATH];
     GetModuleFileNameA(NULL, exePath, MAX_PATH);
@@ -1878,8 +2038,14 @@ static DWORD WINAPI Worker(LPVOID) {
         // files belong; do it before any status write so the very first line
         // the host can see already comes from the right folder.
         if (g_config) AdoptControlDirFromConfig();
-        if (!g_state.base) FindState(opti, exeName, &g_state);
-        if (g_state.base && !g_backends.table) DiscoverBackendMap();
+        if (!g_state.base) {
+            FindState(opti, exeName, &g_state);
+            if (g_state.base) LogLine("state located at %p", (void*) g_state.base);
+        }
+        if (g_state.base && !g_backends.table) {
+            DiscoverBackendMap();
+            if (g_backends.table) LogLine("backend map located at %p", (void*) g_backends.table);
+        }
         DiscoverStateExtras();
         if (g_config && g_state.base && g_backends.table) break;
         WriteStatus("searching");
@@ -1887,8 +2053,12 @@ static DWORD WINAPI Worker(LPVOID) {
     }
 
     if (!g_config) {
-        snprintf(g_error, sizeof(g_error), "could not locate OptiScaler's config object");
+        snprintf(g_error, sizeof(g_error), "could not locate OptiScaler's config object (%s)",
+                 ConfigStageName(g_cfgBestStage));
         LogLine("%s", g_error);
+        LogLine("config scan: %llu pointer candidates passed the shape filters in the last pass",
+                g_cfgCandidates);
+        DescribeConfigCandidate();
         WriteStatus("failed");
         return 0;
     }
@@ -1920,8 +2090,14 @@ static DWORD WINAPI Worker(LPVOID) {
         // giving up on upscaler switching for the whole session.
         if (!g_backends.table && ++rediscover >= 25) {  // every ~5s
             rediscover = 0;
-            if (!g_state.base) FindState(opti, exeName, &g_state);
-            if (g_state.base && DiscoverBackendMap()) WriteStatus("ready");
+            if (!g_state.base) {
+                FindState(opti, exeName, &g_state);
+                if (g_state.base) LogLine("state located at %p", (void*) g_state.base);
+            }
+            if (g_state.base && DiscoverBackendMap()) {
+                LogLine("backend map located at %p", (void*) g_backends.table);
+                WriteStatus("ready");
+            }
         }
 
         // The FFX version lists appear only once the game has queried the SDK,
@@ -1936,6 +2112,7 @@ static DWORD WINAPI Worker(LPVOID) {
         // Each of these two slots holds one frame's interval, so they are read
         // at the loop's own rate and smoothed, not sampled once every heartbeat.
         SampleFrameTimes();
+        SyncWatermarkEnv();
 
         WIN32_FILE_ATTRIBUTE_DATA info;
         if (GetFileAttributesExW(g_cmdPath, GetFileExInfoStandard, &info)) {
