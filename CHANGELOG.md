@@ -3,6 +3,24 @@
 Newest first. Each release ships `Decky OptiScaler.zip` for Decky Loader's
 *Install from URL* (Developer mode), and bundles **OptiScaler 10.0.0-pre1** (nightly 2026-11-04).
 
+## [0.0.17] - 2026-11-04
+
+### Fixed
+
+- **Games added through Steam's own import resolved to Xodus's shortcuts
+  folder.** Xodus adds a game to a running Steam with the .desktop file it
+  generates, and Steam keeps the whole launch line -- /bin/sh, the
+  launch-game script and the game's id -- in the shortcut's *target*,
+  leaving the launch options empty. The resolver read only the launch
+  options, found no game there, and fell back to the shortcut's start
+  directory: the shortcuts folder itself. OptiScaler was installed into
+  it, and live control had no game to wait for. The whole command line
+  is searched now, target and launch options as one, so an imported
+  Xodus shortcut resolves to the folder its game runs from, and one
+  whose game cannot be found refuses to resolve instead of pointing at
+  the launcher's own folders. Desktop-imported shortcuts of the other
+  launchers read the same joined line.
+
 ## [0.0.16] - 2026-11-04
 
 ### Fixed

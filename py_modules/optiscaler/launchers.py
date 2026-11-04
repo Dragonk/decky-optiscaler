@@ -238,15 +238,32 @@ def _xodus_game(data, game_id, name=None):
     return None
 
 
-def _xodus_shortcut(options, name=None):
-    """The install folder a Xodus Nexus shortcut's game lives in, or None."""
-    match = XODUS_SHORTCUT.search(options)
+def _shortcut_command(exe, options):
+    """Everything a shortcut says it runs, as one command line.
+
+    The launch line can arrive in either field: Xodus's own writer puts
+    the script it runs in the launch options, while the shortcut Steam
+    imports from Xodus's .desktop file keeps the whole Exec line in the
+    target field and leaves the launch options empty -- a shortcut has
+    to be read as one line to resolve either way.
+    """
+    return " ".join(part for part in (options or "", exe or "") if part)
+
+
+def _xodus_shortcut(command, name=None):
+    """The install folder a Xodus Nexus shortcut's game lives in, or None.
+
+    *command* is the whole line the shortcut runs: the script and the
+    game id can sit in the launch options or, after Steam's .desktop
+    import, in the target field alone.
+    """
+    match = XODUS_SHORTCUT.search(command)
     if match:
         data = _xodus_state(match.group(1))
         if data is None:
             return None
         if match.group(2) == "game":
-            ids = XODUS_GAME_ID.findall(options.replace(match.group(1), " "))
+            ids = XODUS_GAME_ID.findall(command.replace(match.group(1), " "))
             return _xodus_game(data, ids[-1], name) if ids else None
         # The launcher's own shortcut: the folder Nexus installs games into,
         # so the UI has something better than /bin to point at.
@@ -258,7 +275,7 @@ def _xodus_shortcut(options, name=None):
     # A shortcut that calls the AppImage with --launch-game itself — the way a
     # tool other than Nexus wires it up. Without the script's path the default
     # profile is the only place the state can be.
-    direct = XODUS_DIRECT.search(options)
+    direct = XODUS_DIRECT.search(command)
     if direct:
         data = _xodus_state(Path.home() / XODUS_DEFAULT_SCRIPT)
         if data is not None:
@@ -277,12 +294,12 @@ def is_launcher_shortcut(exe=None, options=""):
     launcher's own UI.
     """
     exe_name = Path(exe).name.lower() if exe else ""
-    options = options or ""
+    command = _shortcut_command(exe, options)
     if LAUNCHER_EXES.get(exe_name):
         return True
-    if XODUS_SHORTCUT.search(options) or XODUS_DIRECT.search(options):
+    if XODUS_SHORTCUT.search(command) or XODUS_DIRECT.search(command):
         return True
-    return any(uri in options for uri in LAUNCHER_URIS)
+    return any(uri in command for uri in LAUNCHER_URIS)
 
 
 def resolve_shortcut(exe, start_dir=None, options="", name=None):
@@ -296,16 +313,19 @@ def resolve_shortcut(exe, start_dir=None, options="", name=None):
     """
     exe_name = Path(exe).name.lower() if exe else ""
     options = options or ""
+    command = _shortcut_command(exe, options)
     # Xodus Nexus first: it is native Linux, so there is no prefix at all and
-    # its own state file says exactly where the game is.
-    xodus = _xodus_shortcut(options, name)
+    # its own state file says exactly where the game is. The whole line is
+    # searched: Steam's .desktop import leaves the launch line in the
+    # target field, not the launch options.
+    xodus = _xodus_shortcut(command, name)
     if xodus is not None:
         return xodus
     launcher = LAUNCHER_EXES.get(exe_name)
     if launcher is None:
         for uri in LAUNCHER_URIS:
-            if uri in options:
-                launcher = "epic" if "com.epicgames.launcher://" in options else "generic"
+            if uri in command:
+                launcher = "epic" if "com.epicgames.launcher://" in command else "generic"
                 break
     if launcher is None:
         return None
@@ -315,7 +335,7 @@ def resolve_shortcut(exe, start_dir=None, options="", name=None):
         return None
 
     if launcher == "epic":
-        match = EPIC_APP_URI.search(options)
+        match = EPIC_APP_URI.search(command)
         games = _epic_games(drive_c)
         if match:
             wanted = unquote(match.group(1))

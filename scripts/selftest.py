@@ -1497,6 +1497,29 @@ def check_launcher_shortcuts():
         check("an unknown Xodus id yields nothing rather than /bin",
               steam_mod.find_by_appid(home, appid) is None)
 
+        # Steam's own import of Xodus's .desktop file -- "Add to Steam"
+        # with the client running -- keeps the whole launch line in the
+        # shortcut's target field and leaves the launch options empty.
+        # The command has to be read as a whole, or the game resolves to
+        # the shortcuts folder the start directory names: where every
+        # desktop-imported shortcut used to land.
+        imported = ("/bin/sh " + chr(34) + str(script) + chr(34)
+                    + " " + chr(34) + "80454a304a71cb22" + chr(34))
+        appid = shortcut(-1234567816, "DOOM Eternal",
+                         chr(34) + imported + chr(34),
+                         f'"{nexus / "shortcuts"}"', "")
+        found = steam_mod.find_by_appid(home, appid)
+        check("a desktop-imported Xodus shortcut resolves to the folder its executable runs from",
+              found and found["source"] == "xodus"
+              and found["path"] == str(nexus_exe), found)
+        imported = ("/bin/sh " + chr(34) + str(script) + chr(34)
+                    + " " + chr(34) + "deadbeefdeadbeef" + chr(34))
+        appid = shortcut(-1234567817, "Ghost Game",
+                         chr(34) + imported + chr(34),
+                         f'"{nexus / "shortcuts"}"', "")
+        check("an unknown id in an imported command line yields nothing rather than the shortcuts folder",
+              steam_mod.find_by_appid(home, appid) is None)
+
         bare = compat / "EmptyPrefix" / "pfx"
         bare.mkdir(parents=True)
         (bare / "ubisoftconnect.exe").write_bytes(b"MZ")
