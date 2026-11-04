@@ -1995,6 +1995,15 @@ static void SetUpPaths(HMODULE self) {
     // has to be good enough for the "loaded" line written before discovery.
     wchar_t* up = wcsrchr(path, L'\\');
     if (up && _wcsicmp(up + 1, L"plugins") == 0) *up = 0;
+    // v10 keeps OptiScaler.ini at the game's root while the plugin sits in
+    // OptiScaler/plugins; with that layout one more level up is where the
+    // control files belong. Stopping at the OptiScaler folder parks them in
+    // a place nothing reads whenever Config cannot be located, which looks
+    // from the outside exactly like a plugin that never ran.
+    if (up) {
+        wchar_t* up2 = wcsrchr(path, L'\\');
+        if (up2 && _wcsicmp(up2 + 1, L"OptiScaler") == 0) *up2 = 0;
+    }
     wcsncpy(g_dir, path, MAX_PATH - 1);
     g_dir[MAX_PATH - 1] = 0;
     RebuildControlPaths();
@@ -2028,15 +2037,26 @@ static bool AdoptControlDirFromConfig() {
         if (*p == L'\\' || *p == L'/') slash = p;
     if (!slash || slash == buf) return false;
 
+    size_t len = (size_t) (slash - buf);
+    if (len >= MAX_PATH) return false;
+
+    // Settling on the folder the provisional guess already picked means
+    // there is nothing to move -- and deleting here would throw away the
+    // "loaded" lines the host's diagnostics answer starts from.
+    bool same = (g_dir[len] == 0);
+    for (size_t i = 0; same && i < len; i++)
+        same = g_dir[i] == (wchar_t) buf[i];
+    if (same) {
+        g_dirAdopted = true;
+        return true;
+    }
+
     // The provisional paths are still in g_*Path until they are rebuilt, so
     // remove what was already written there first: an orphaned status left in
     // the old folder is a "ready" heartbeat from a folder the host does not
     // read, and worse, one whose "dir" line disagrees with the host's.
     DeleteFileW(g_statusPath);
     DeleteFileW(g_logPath);
-
-    size_t len = (size_t) (slash - buf);
-    if (len >= MAX_PATH) return false;
     for (size_t i = 0; i < len; i++) g_dir[i] = (wchar_t) buf[i];
     g_dir[len] = 0;
     RebuildControlPaths();

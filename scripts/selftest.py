@@ -786,6 +786,28 @@ def check_live_diagnostics():
         check("OptiScaler's own log confirms the load",
               live.loaded_by_optiscaler(str(target)) is True)
 
+        # The provisional folder: an ASI that loaded but has not located
+        # Config keeps its files in <game>/OptiScaler for the whole session,
+        # and that must read as "the plugin is there", not as silence.
+        provisional = target / "OptiScaler"
+        provisional.mkdir()
+        check("the provisional control folder is monitored",
+              provisional in live.control_dirs(str(target)))
+        win = "Z:" + str(provisional).replace("/", chr(92))
+        (provisional / live.STATUS_FILE).write_text(
+            "schema 2\nstatus searching\nseq 1\ndir " + win + "\nerror \n")
+        searching = live.status(str(target))
+        check("a heartbeat from the provisional folder reads as attached",
+              searching["attached"] and searching["state"] == "searching",
+              searching)
+        check("the provisional folder is not reported as a mismatch",
+              searching["dir_matches"], searching)
+        (provisional / live.STATUS_FILE).unlink()
+        (provisional / "OptiScaler.log").write_text("[info] Checking X for *.asi\n")
+        check("optiscaler's log is readable from the provisional folder too",
+              live.opti_log_tail(str(target)) == ["[info] Checking X for *.asi"])
+        shutil.rmtree(provisional)
+
         # The heartbeat is what makes staleness mean "the game is gone" rather
         # than "nobody changed a setting recently".
         check("the staleness window is short enough to track a live game",
@@ -1915,6 +1937,9 @@ def check_optipatcher():
         requirements = {(r["section"], r["key"]): r["value"] for r in live.ini_requirements()}
         check("asi loading is switched on for it",
               requirements.get(("Plugins", "LoadAsiPlugins")) == "true", requirements)
+        check("logging is switched on with it, so loading can be traced",
+              requirements.get(("Log", "LogToFile")) == "true"
+              and requirements.get(("Log", "LogLevel")) == "0", requirements)
     finally:
         shutil.rmtree(root, ignore_errors=True)
 
@@ -1939,6 +1964,11 @@ def check_asi_wide_formats():
     check("the status file reports the folder the plugin chose",
           '"dir %s\\n"' in source)
     check("control paths are built without printf", "JoinPath(g_statusPath" in source)
+    check("the provisional control dir goes up past the OptiScaler folder",
+          "Stopping at the OptiScaler folder parks them in" in source
+          and "wcsicmp(up2 + 1" in source)
+    check("settling on the same folder keeps the early log lines",
+          "nothing to move" in source)
 
     built = ROOT / "bin" / "decky_optiscaler_live.asi"
     check("the built plugin is present", built.is_file())

@@ -249,11 +249,27 @@ def control_dirs(target_dir):
     game starts OptiScaler out of a temporary chain view, and the ASI it
     loads writes next to the DLL it was loaded from. A view exists only
     while the game runs, so it is re-asked on every call.
+
+    The "OptiScaler" sub-folder is here too: the ASI sits in
+    OptiScaler/plugins and settles on the ini's own folder only once it has
+    located Config in memory, so a plugin that loaded but could not find
+    Config writes there for the whole session -- and a backend that never
+    looks would read that as a plugin that never ran at all.
     """
     dirs = [Path(target_dir)]
     for _view, inside in launchers.launch_views_around(target_dir):
         dirs.append(inside)
-    return dirs
+    expanded = []
+    for directory in dirs:
+        expanded.append(directory)
+        expanded.append(directory / "OptiScaler")
+    # De-duplicated in order: the same folder twice would leave "newest" a
+    # coin flip between files with equal mtimes.
+    seen = []
+    for directory in expanded:
+        if directory not in seen:
+            seen.append(directory)
+    return seen
 
 
 def _newest_control_file(target_dir, name):
@@ -375,12 +391,11 @@ def install_asi(target_dir, source, logger=None):
 def remove_asi(target_dir, logger=None):
     """Remove the ASI and every file the live channel created."""
     removed = []
-    for path in (
-        asi_path(target_dir),
-        _control_path(target_dir, CMD_FILE),
-        _control_path(target_dir, STATUS_FILE),
-        _control_path(target_dir, LOG_FILE),
-    ):
+    for path in [asi_path(target_dir)] + [
+        directory / name
+        for directory in control_dirs(target_dir)
+        for name in (CMD_FILE, STATUS_FILE, LOG_FILE)
+    ]:
         try:
             if path.is_file():
                 path.unlink()
@@ -389,18 +404,18 @@ def remove_asi(target_dir, logger=None):
             if logger:
                 logger.warning("could not remove %s: %s", path, exc)
 
-    # A running view may hold its own copies of the same files; they die with
-    # the view when the launch ends, but a live session should stop answering
-    # the moment its module is removed.
+    # A running view may hold its own copy of the ASI; the control files in
+    # it are covered by control_dirs above, but the module itself is not a
+    # control file. It dies with the view when the launch ends, but a live
+    # session should stop answering the moment its module is removed.
     for view, inside in launchers.launch_views_around(target_dir):
-        for path in (inside / PLUGIN_SUBDIR / ASI_NAME,
-                     inside / CMD_FILE, inside / STATUS_FILE, inside / LOG_FILE):
-            try:
-                if path.is_file():
-                    path.unlink()
-                    removed.append(path.name)
-            except OSError:
-                pass
+        path = inside / PLUGIN_SUBDIR / ASI_NAME
+        try:
+            if path.is_file():
+                path.unlink()
+                removed.append(path.name)
+        except OSError:
+            pass
 
     # Only clean the plugins folder up if we are the ones who created it.
     plugin_dir = Path(target_dir) / PLUGIN_SUBDIR
@@ -415,13 +430,24 @@ def remove_asi(target_dir, logger=None):
 def ini_requirements():
     """INI settings OptiScaler needs before it will load the ASI at all.
 
-    Only the switch. ``Plugins.Path`` is deliberately left alone: OptiScaler
-    already defaults it to ``<dll folder>/plugins``, and writing a *relative*
-    path here would be resolved against the game's working directory instead,
-    which is not reliably the folder OptiScaler was loaded from.
+    The switch plus logging. ``Plugins.Path`` is deliberately left alone:
+    OptiScaler derives it from the exe folder and its own "OptiScaler"
+    sub-folder, and writing a *relative* path here would be resolved against
+    the game's working directory instead, which is not reliably the folder
+    OptiScaler was loaded from.
+
+    Logging matters because v10 defaults it to off: with no OptiScaler.log
+    there is no answer to "did OptiScaler even search the plugins folder",
+    and no record of what LoadLibrary answered when it did. ``LogLevel`` is
+    OptiScaler's own default (trace) -- spelling it out keeps a leftover ini
+    from another tool from silencing the plugin-search lines that say which
+    folder was scanned.
     """
     return [
         {"section": "Plugins", "key": "LoadAsiPlugins", "value": "true"},
+        {"section": "Log", "key": "LogToFile", "value": "true"},
+        {"section": "Log", "key": "SingleFile", "value": "true"},
+        {"section": "Log", "key": "LogLevel", "value": "0"},
     ]
 
 
@@ -686,9 +712,17 @@ def status(target_dir, source=None):
         report["dir_matches"] = _same_dir(reported_dir, target_dir)
         if not report["dir_matches"]:
             # A control directory inside a chain view is where an encrypted
-            # Xodus game is expected to keep its files now, not a mismatch.
+            # Xodus game is expected to keep its files now, not a mismatch --
+            # and so is the provisional "OptiScaler" sub-folder an in-game
+            # plugin that has not located Config yet still writes to.
+            managed = [str(Path(target_dir))]
+            managed += [str(Path(view)) for view in views]
+            places = []
+            for folder in managed:
+                places.append(folder)
+                places.append(str(Path(folder) / "OptiScaler"))
             report["dir_matches"] = any(
-                _same_dir(reported_dir, view) for view in views
+                _same_dir(reported_dir, place) for place in places
             )
     return report
 
@@ -837,6 +871,23 @@ def switch_backend(target_dir, code):
 
 def log_tail(target_dir, lines=40):
     path = _newest_control_file(target_dir, LOG_FILE)
+    if path is None:
+        return []
+    try:
+        return path.read_text(encoding="utf-8", errors="replace").splitlines()[-lines:]
+    except OSError:
+        return []
+
+
+def opti_log_tail(target_dir, lines=40):
+    """The tail of OptiScaler's own log, once live control switched it on.
+
+    The ASI's log says what the in-game plugin did; OptiScaler's is the only
+    place that says whether OptiScaler searched its plugins folder at all,
+    which one it searched, and what LoadLibrary answered when it found the
+    module. Between them they answer both halves of "not connected".
+    """
+    path = _newest_control_file(target_dir, "OptiScaler.log")
     if path is None:
         return []
     try:

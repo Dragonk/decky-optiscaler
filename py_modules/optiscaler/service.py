@@ -989,7 +989,16 @@ class OptiScalerService:
         return result
 
     async def get_live_log(self, target_dir, lines=40):
-        return {"lines": await self._run(live.log_tail, target_dir, lines)}
+        ours = await self._run(live.log_tail, target_dir, lines)
+        # OptiScaler's own log rides along with the plugin's: together they
+        # answer both halves of "not connected" -- what the in-game plugin
+        # did, and whether OptiScaler ever tried to load it.
+        opti = await self._run(live.opti_log_tail, target_dir, lines)
+        combined = list(ours)
+        if opti:
+            combined.append("---- OptiScaler.log ----")
+            combined.extend(opti)
+        return {"lines": combined}
 
     # -- monitoring ------------------------------------------------------
     async def get_monitor(self, target_dir):
