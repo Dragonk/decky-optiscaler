@@ -1441,6 +1441,7 @@ def check_launcher_shortcuts():
                        "path": str(nexus_game)}],
             "settings": {"installRoot": str(nexus_root)},
         }))
+        launch_nexus = str(nexus / "shortcuts" / "launch-nexus")
         script = nexus / "shortcuts" / "launch-game"
         appid = shortcut(-1234567804, "DOOM Eternal",
                          "/bin/sh", f'"{nexus / "shortcuts"}"',
@@ -1451,7 +1452,7 @@ def check_launcher_shortcuts():
 
         appid = shortcut(-1234567805, "Nexus Launcher",
                          "/bin/sh", f'"{nexus / "shortcuts"}"',
-                         f"'{nexus / "shortcuts" / "launch-nexus"}'")
+                         f"'{launch_nexus}'")
         found = steam_mod.find_by_appid(home, appid)
         check("and the launcher's own shortcut to the root it installs games into",
               found and found["source"] == "xodus-launcher" and found["path"] == str(nexus_root), found)
