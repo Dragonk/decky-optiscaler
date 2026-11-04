@@ -68,48 +68,160 @@ export function hasOverride(options: string | null, filename: string): boolean {
  * installed is dropped. A leftover bare `%command%` is Steam's own default
  * written out longhand, so that collapses to an empty field.
  */
-export function stripOverride(options: string, filename: string): string {
-  const stem = overrideStem(filename).toLowerCase();
-  const withoutOurs = options.replace(
-    /WINEDLLOVERRIDES=(?:"[^"]*"|'[^']*'|\S+)/gi,
-    (match) => (match.toLowerCase().includes(`${stem}=`) ? "" : match),
+/**
+ * The DLL entries of a WINEDLLOVERRIDES value, in Wine's own grammar: tokens
+ * are separated by commas and semicolons alike, and a token without an "="
+ * is a load-order flag of the entry before it — "dxgi=n,b" is one entry with
+ * two flags, not an entry and a half.
+ */
+function assignmentEntries(value: string): string[] {
+  const entries: string[] = [];
+  for (const token of value.split(/[,;]/)) {
+    const trimmed = token.trim();
+    if (!trimmed) continue;
+    if (trimmed.includes("=") || entries.length === 0) entries.push(trimmed);
+    else entries[entries.length - 1] += "," + trimmed;
+  }
+  return entries;
+}
+
+function stripStems(options: string, stems: string[]): string {
+  const ours = new Set(stems.map((stem) => stem.toLowerCase()));
+  const entries = assignmentEntries;
+  const without = options.replace(
+    /WINEDLLOVERRIDES=(?:"([^"]*)"|'([^']*)'|(\S+))/gi,
+    (match, dq: string, sq: string, bare: string) => {
+      const value = dq ?? sq ?? bare ?? "";
+      const kept = entries(value).filter(
+        (entry) => !ours.has(entry.split("=")[0].toLowerCase()),
+      );
+      if (kept.length === entries(value).length) return match;
+      return kept.length ? 'WINEDLLOVERRIDES="' + kept.join(";") + '"' : "";
+    },
   );
-  const collapsed = withoutOurs.replace(/\s+/g, " ").trim();
+  const collapsed = without.replace(/\s+/g, " ").trim();
   return collapsed === "%command%" ? "" : collapsed;
+}
+
+export function stripOverride(options: string, filename: string): string {
+  return stripStems(options, [overrideStem(filename)]);
+}
+
+/** The DLL stems a launch-options string of ours claims to manage. */
+function managedStems(options: string): string[] {
+  const assignments = options.match(/WINEDLLOVERRIDES=(?:"[^"]*"|'[^']*'|\S+)/gi) ?? [];
+  return assignments.flatMap((assignment) =>
+    assignmentEntries(
+      assignment
+        .replace(/^WINEDLLOVERRIDES=/i, "")
+        .replace(/^["']|["']$/g, ""),
+    )
+      .map((entry) => entry.split("=")[0])
+      .filter(Boolean),
+  );
+}
+
+/**
+ * Ours in front of theirs, with two `WINEDLLOVERRIDES` assignments folded
+ * into one: a shell keeps only the last assignment of a name, so two would
+ * silently drop whichever came first — REF's `dinput8` when this plugin's
+ * `dxgi` is written over it, or the other way around.
+ */
+function joinAssignments(head: string, ourHead: string): string {
+  if (!ourHead) return head;
+  if (!head) return ourHead;
+  const assignment = /WINEDLLOVERRIDES=(?:"([^"]*)"|'([^']*)'|(\S+))/i;
+  const theirs = head.match(assignment);
+  const mine = ourHead.match(assignment);
+  if (theirs && mine) {
+    const value = [
+      mine[1] ?? mine[2] ?? mine[3] ?? "",
+      theirs[1] ?? theirs[2] ?? theirs[3] ?? "",
+    ].filter(Boolean).join(";");
+    return head.replace(assignment, 'WINEDLLOVERRIDES="' + value + '"');
+  }
+  return head + " " + ourHead;
 }
 
 /**
  * Our override written into whatever the game is launched with today.
  *
  * A plain replace used to be enough for a Steam game, which starts with no
- * launch options of its own. Launcher shortcuts added by NonSteamLaunchers
- * are different: the URL argument in the options is what makes the shortcut
- * start a game at all (com.epicgames.launcher://apps/..., bnet://,
- * uplay://), usually alongside STEAM_COMPAT_DATA_PATH for the prefix.
- * Replacing the field broke the shortcut outright, so the override is
- * merged: our WINEDLLOVERRIDES goes with the other environment assignments
- * before %command%, and everything the game needs after it stays verbatim.
+ * launch options of its own. Launcher shortcuts are different, in two shapes,
+ * and both must survive verbatim:
+ *
+ * - options with `%command%` in them (NonSteamLaunchers' style: environment
+ *   assignments, the marker, then the URL that starts the game —
+ *   `com.epicgames.launcher://`, `uplay://`, `bnet://`). The override joins
+ *   the assignments before the marker.
+ * - options that are only arguments (Xodus Nexus' style: a `launch-game`
+ *   script path and the game's id, or the AppImage with `--launch-game`, and
+ *   no marker at all). Steam puts a shortcut's exe in front of those, so an
+ *   assignment at the front of the options lands in the game's argument list
+ *   instead of its environment — Xodus forwards it as the game's id and
+ *   refuses to start. The marker goes in first: Steam writes the exe at
+ *   `%command%`, so the assignment lands in front of the command where the
+ *   shell reads it, and every argument the shortcut needs stays after it,
+ *   untouched.
+ *
+ * Our own override is taken out of the existing options before the merge, so
+ * a reinstall never stacks a second copy — and a merge repairs options an
+ * earlier release wrote in the argument-first form that broke launchers.
  */
 export function mergeLaunchOptions(existing: string | null, ours: string): string {
   const current = (existing ?? "").trim();
   const wanted = ours.trim();
   if (!current) return wanted;
   if (current === wanted) return current;
+  const base = stripStems(current, managedStems(wanted));
   const marker = "%command%";
   const oi = wanted.indexOf(marker);
-  if (oi < 0) return `${wanted} ${current}`;
+  if (oi < 0) return wanted + " " + base;
   const ourHead = wanted.slice(0, oi).trim();
   const ourTail = wanted.slice(oi + marker.length).trim();
-  const ci = current.indexOf(marker);
+  const ci = base.indexOf(marker);
   if (ci < 0) {
-    return [ourHead, current, ourTail].filter(Boolean).join(" ");
+    const tail = [ourTail, base].filter(Boolean).join(" ");
+    return [ourHead, marker, tail].filter(Boolean).join(" ");
   }
-  const head = current.slice(0, ci).trim();
-  const tail = current.slice(ci + marker.length).trim();
-  const alreadyThere = !!ourHead && head.toLowerCase().includes(ourHead.toLowerCase());
-  const mergedHead = alreadyThere || !ourHead ? head : [head, ourHead].filter(Boolean).join(" ");
-  const mergedTail = [ourTail, tail].filter(Boolean).join(" ");
-  return [mergedHead, marker, mergedTail].filter(Boolean).join(" ");
+  const head = joinAssignments(base.slice(0, ci).trim(), ourHead);
+  const tail = [ourTail, base.slice(ci + marker.length).trim()].filter(Boolean).join(" ");
+  return [head, marker, tail].filter(Boolean).join(" ");
+}
+
+/**
+ * Whether an app id names a non-Steam shortcut rather than a Steam app.
+ *
+ * Steam derives every shortcut id with the top bit set, and no real app id
+ * has it — the same distinction the backend reads a shortcut's launch options
+ * by.
+ */
+export function isShortcutAppid(appid: string | number | null): boolean {
+  if (appid === null || appid === "") return false;
+  const id = typeof appid === "number" ? appid : Number(appid);
+  if (!Number.isSafeInteger(id)) return false;
+  const unsigned = id < 0 ? id + 4294967296 : id;
+  return unsigned >= 2147483648;
+}
+
+/**
+ * What may be written back into Steam's launch options, or null when nothing
+ * may be written at all.
+ *
+ * A non-Steam shortcut's options carry the arguments that start its game —
+ * Xodus Nexus' launch script and game id, a `uplay://` URL. When Steam will
+ * not say what is in the field, writing to it replaces those arguments with a
+ * guess and the game stops starting, so the field is left alone and the user
+ * is told to set the override by hand. A Steam game cannot lose anything this
+ * way: its options are extras, never the command that starts it.
+ */
+export function safeLaunchWrite(
+  appid: string | number | null,
+  current: string | null,
+  desired: string | null,
+): string | null {
+  if (current !== null || !isShortcutAppid(appid)) return desired;
+  return null;
 }
 
 /**

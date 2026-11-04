@@ -32,6 +32,7 @@ import {
   recordPreviousLaunchOptions,
   recordedValue,
   resolveChoice,
+  safeLaunchWrite,
   stripOverride,
 } from "../launchOptions";
 import type { LaunchAction, LaunchState } from "../launchOptions";
@@ -432,9 +433,23 @@ export function SetupChecklist({
     // value is what we want in the field; null takes our override back out
     // and leaves everything else the shortcut needs to start its game.
     const current = await currentLaunchOptions(appid);
-    const written = value === null
-      ? stripOverride(current ?? "", filename)
-      : mergeLaunchOptions(current, value);
+    // Steam will not say what a shortcut passes its game: the options are the
+    // command that starts it, so a write would replace that command with a
+    // guess and the game would stop starting. Nothing is written instead.
+    const written = safeLaunchWrite(
+      appid,
+      current,
+      value === null
+        ? stripOverride(current ?? "", filename)
+        : mergeLaunchOptions(current, value),
+    );
+    if (written === null) {
+      toaster.toast({
+        title: "Launch options not changed",
+        body: "Steam will not say what this shortcut passes its game, so the field is left alone.",
+      });
+      return;
+    }
     if (setLaunchOptions(Number(appid), written)) {
       // Shown from what was written rather than read back: Steam flushes its
       // config file on its own schedule, so a read landing in that window

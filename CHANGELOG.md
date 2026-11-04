@@ -3,6 +3,40 @@
 Newest first. Each release ships `Decky OptiScaler.zip` for Decky Loader's
 *Install from URL* (Developer mode), and bundles **OptiScaler 10.0.0-pre1** (nightly 2026-11-04).
 
+## [0.0.12] - 2026-11-04
+
+### Fixed
+
+- **Non-Steam launcher shortcuts stopped starting their game.** Installing
+  OptiScaler offers to write a `WINEDLLOVERRIDES` override into Steam's
+  launch options. A shortcut whose options are pure arguments — every Xodus
+  Nexus game (`/bin/sh`, a `launch-game` script and the game's id, or the
+  AppImage with `--launch-game`; a bare `uplay://` URL; any game whose own
+  options lack `%command%`) — got the override prepended to the arguments,
+  because Steam puts a shortcut's exe in front of its options. Xodus Nexus
+  forwards its first argument as the game's id, so it refused to start with
+  *Invalid game shortcut ID*. The override now goes in behind `%command%`,
+  where Steam writes the exe back: the assignment lands in front of the
+  command where the shell reads it, and every argument the shortcut needs
+  stays after it, verbatim. Applying the options again repairs a shortcut an
+  earlier release broke this way, on install or from the set-up checklist.
+- **Options Steam will not report are never replaced for shortcuts.** A
+  non-Steam shortcut's options are the command that starts its game; when
+  neither the client nor `shortcuts.vdf` can say what is there, writing to
+  the field replaces that command with a guess and the game stops starting.
+  The write is refused and a toast says so instead.
+- **A reinstall no longer stacks a second override**, and merging into
+  options that already carry REFramework's `dinput8` folds the two
+  `WINEDLLOVERRIDES` assignments into one instead of leaving the shell to
+  keep only the last — which silently dropped whichever came first.
+
+### Added
+
+- Unit tests for the launch-options merge, one per launcher shortcut style:
+  Xodus Nexus' script and direct-AppImage forms, Epic and uplay URLs, bare
+  arguments, REFramework's `dinput8`, reinstalls, and repairs of options an
+  earlier release wrote wrong (`vitest run`).
+
 ## [0.0.11] - 2026-11-04
 
 ### Added

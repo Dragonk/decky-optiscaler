@@ -17,6 +17,7 @@ import {
   launchOptionFor,
   mergeLaunchOptions,
   recordPreviousLaunchOptions,
+  safeLaunchWrite,
 } from "../launchOptions";
 import { PREF_INSTALL_LAUNCH, isRemembering, recall, remember } from "../prefs";
 import { useAutoPlan } from "../hooks/useAutoPlan";
@@ -188,10 +189,17 @@ export function InstallPanel({ detail, status, appid, live, onChanged }: Props) 
 
   const applyLaunchOptions = async () => {
     if (!appid) return;
-    // Merge, not replace: a launcher shortcut's options carry the URL that
-    // starts the game, and they must survive our override.
+    // Merge, not replace: a launcher shortcut's options carry the arguments
+    // that start the game, and they must survive our override.
     const current = await currentLaunchOptions(appid);
-    const merged = mergeLaunchOptions(current, launchOption);
+    const merged = safeLaunchWrite(appid, current, mergeLaunchOptions(current, launchOption));
+    if (merged === null) {
+      toaster.toast({
+        title: "Launch options not changed",
+        body: "Steam will not say what this shortcut passes its game, so the field is left alone.",
+      });
+      return;
+    }
     if (setLaunchOptions(Number(appid), merged)) {
       setLaunchNow(merged);
       setLaunchRead(true);
