@@ -270,7 +270,7 @@ export function LivePanel({ targetDir, status, onChanged }: Props) {
         <PanelSectionRow>
           <Notice tone="warn" title="This game runs a different OptiScaler build">
             {optiMismatch}
-            {" The live-control plugin mirrors OptiScaler memory layout for the build bundled here, so with another build it loads but cannot attach -- settings stay restart-only. Reinstall OptiScaler from this plugin and live control will work."}
+            {" The live-control plugin mirrors OptiScaler memory layout for the build bundled here, so with another build it loads but cannot attach -- settings stay restart-only. Reinstall OptiScaler itself -- the Reinstall button in the OptiScaler section at the top of this page, not Reinstall live control below -- and live control will work."}
           </Notice>
         </PanelSectionRow>
       ) : null}
@@ -327,7 +327,7 @@ export function LivePanel({ targetDir, status, onChanged }: Props) {
             disabled={busy}
             onClick={async () => {
               if (!log) return;
-              await copyText(log.join("' + DQ + BS + 'n"));
+              await copyText(log.join("\n"));
               setCopied(true);
               window.setTimeout(() => setCopied(false), 1500);
             }}

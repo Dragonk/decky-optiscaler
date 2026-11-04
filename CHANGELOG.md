@@ -3,6 +3,25 @@
 Newest first. Each release ships `Decky OptiScaler.zip` for Decky Loader's
 *Install from URL* (Developer mode), and bundles **OptiScaler 10.0.0-pre1** (nightly 2026-11-04).
 
+## [0.0.21] - 2026-11-04
+
+### Fixed
+
+- **Copy diagnostics glued its lines together with a broken separator.** The
+  button worked, but the clipboard text carried a stray snippet of the build
+  tooling between every line -- readable, and still a pain to paste cleanly.
+  Lines are now separated with real newlines.
+- **The payload cache could keep serving an old OptiScaler build.** The
+  extracted copy was keyed to the version tag alone, and nightly builds ship
+  under the same tag for weeks -- so "reinstall" could happily copy a stale
+  build out of the cache forever. The cache now records the SHA of the
+  archive it was extracted from and re-extracts whenever the bundled archive
+  changes, including a cache from before this change: no marker, no service.
+- **The build-mismatch warning now names the button that fixes it.**
+  "Reinstall" was ambiguous on a page with two reinstall buttons; the warning
+  now says to reinstall OptiScaler itself in the section at the top of the
+  page, not live control.
+
 ## [0.0.20] - 2026-11-04
 
 ### Added

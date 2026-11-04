@@ -22,6 +22,12 @@ EXTRACTORS = [
 BSDTAR = ["bsdtar", "-xf"]
 
 MARKER = "OptiScaler.dll"
+# The extraction is keyed to the archive that produced it, not just to the
+# version tag: nightly builds ship under the same tag for weeks, so a cache
+# that only remembers the tag can keep serving an old build forever. The
+# directory also records which archive SHA it was unpacked from, and reports
+# itself as not-ready -- forcing a re-extract -- when the archive changes.
+SHA_MARKER = "payload-archive.sha"
 
 
 def sha256(path, chunk=1 << 20):
@@ -104,7 +110,12 @@ class Payload:
 
     @property
     def ready(self):
-        return (self.root / MARKER).is_file()
+        if not (self.root / MARKER).is_file():
+            return False
+        try:
+            return (self.root / SHA_MARKER).read_text(encoding="utf-8").strip() == PAYLOAD_SHA256
+        except OSError:
+            return False
 
     def status(self):
         return {
@@ -141,14 +152,16 @@ class Payload:
                 continue
             argv = command + [dest_flag.format(dest=str(self.root)), str(self.archive)]
             ok, message = self._run(argv, logger)
-            if ok and self.ready:
+            if ok and (self.root / MARKER).is_file():
+                (self.root / SHA_MARKER).write_text(PAYLOAD_SHA256, encoding="utf-8")
                 return self.root
             errors.append(f"{command[0]}: {message}")
 
         if shutil.which(BSDTAR[0]):
             argv = BSDTAR + [str(self.archive), "-C", str(self.root)]
             ok, message = self._run(argv, logger)
-            if ok and self.ready:
+            if ok and (self.root / MARKER).is_file():
+                (self.root / SHA_MARKER).write_text(PAYLOAD_SHA256, encoding="utf-8")
                 return self.root
             errors.append(f"bsdtar: {message}")
 

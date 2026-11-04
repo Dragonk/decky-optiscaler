@@ -1963,6 +1963,33 @@ def check_optipatcher():
         shutil.rmtree(root, ignore_errors=True)
 
 
+def check_payload_cache():
+    """An extraction keyed to the version tag alone can serve an old build
+    forever: nightly archives ship under the same tag for weeks, so
+    "reinstall" could keep copying a stale build out of the cache. The cache
+    has to be keyed to the archive's SHA instead."""
+    import tempfile
+    from optiscaler import payload as payload_mod
+
+    print("\nPayload cache")
+    root = Path(tempfile.mkdtemp(prefix="optiscaler-payload-cache-"))
+    try:
+        p = payload_mod.Payload(root / "bundled.7z", root / "runtime" / "payload")
+        check("an empty cache is not ready", p.ready is False)
+        p.root.mkdir(parents=True)
+        (p.root / payload_mod.MARKER).write_bytes(b"MZ")
+        check("an extraction from before the marker existed re-extracts", p.ready is False)
+        marker = p.root / payload_mod.SHA_MARKER
+        marker.write_text("0" * 64, encoding="utf-8")
+        check("a marker naming a different archive re-extracts", p.ready is False)
+        marker.write_text(payload_mod.PAYLOAD_SHA256, encoding="utf-8")
+        check("the marker naming this archive is ready", p.ready is True)
+        marker.unlink()
+        check("a cache that lost its marker re-extracts", p.ready is False)
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
 def check_asi_wide_formats():
     """No wide format string in the ASI may use a bare %s.
 
@@ -3227,6 +3254,7 @@ def main():
     check_wiki_tls()
     check_version_pin()
     check_optipatcher()
+    check_payload_cache()
     check_asi_wide_formats()
     check_asi_backend_layout()
     check_asi_state_layout()
