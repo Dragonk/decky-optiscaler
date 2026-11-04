@@ -579,6 +579,14 @@ def _frame_rates(fps, present_slot_ms, fg_slot_ms):
 
     presented_ms, rendered_ms = sorted((present_slot_ms, fg_slot_ms))
     ratio = presented_ms / rendered_ms
+    # Interpolation adds at most a few frames per rendered one (XeFG tops
+    # out at 4X). An interval a fifth of the other is not interpolation but
+    # a duration wearing an interval's clothes -- OptiScaler's FG present
+    # timing is sub-millisecond and sits right next to the real pair -- and
+    # scaling by it once read a frame rate of 2643 out of a session running
+    # at 80. Withheld rather than multiplied out.
+    if ratio < 0.2:
+        return None, None
     # A few per cent apart is the two measurements disagreeing, not
     # interpolation: nothing is being generated and there is one frame rate.
     if ratio > 0.95:

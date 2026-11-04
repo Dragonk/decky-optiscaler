@@ -242,6 +242,12 @@ export function BasicPanel({
   const rawUpscaler = (values.Upscalers?.Dx12Upscaler ?? AUTO).toLowerCase();
   const rawFgInput = (values.FrameGen?.FGInput ?? AUTO).toLowerCase();
   const rawFgOutput = (values.FrameGen?.FGOutput ?? AUTO).toLowerCase();
+  // Arming and activation are two states: the method picks the input and
+  // output pair the game reads once at launch, and the frame-generation
+  // toggle only switches the generator itself on and off -- live, once the
+  // session is armed. A method can be armed while the generator is off, and
+  // a session can be armed while generating nothing.
+  const fgArmed = rawFgInput !== "nofg" && rawFgInput !== AUTO;
   const multiplierOption = optionById(MULTIPLIER_ID);
   const multiplierUsable = supportsMultiplier(values);
 
@@ -411,7 +417,7 @@ export function BasicPanel({
         <ValueDropdown
           label="Method"
           description={hint(fgPreset?.description ?? "Choose which frame generator to use.")}
-          disabled={busy || !fgOn}
+          disabled={busy}
           bottomSeparator={automatic && plannedFg ? "none" : "standard"}
           options={FG_PRESETS.map((preset) => ({ data: preset.id, label: preset.label }))}
           // A wiki plan writes the pair the entry names, which is a stronger
@@ -554,6 +560,14 @@ export function BasicPanel({
                   {" "}
                   · {live.base_fps.toFixed(0)} rendered →{" "}
                   {live.total_fps.toFixed(0)} presented
+                </span>
+              ) : liveFg && fgArmed ? (
+                <span style={{ opacity: 0.75 }}>
+                  {" "}
+                  ·{" "}
+                  {methodChanged
+                    ? "restart required — the method is chosen when the game starts"
+                    : "armed, but this session generates no frames"}
                 </span>
               ) : null}
             </div>

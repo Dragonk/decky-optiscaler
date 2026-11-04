@@ -966,6 +966,7 @@ struct state_tail {
     msvc_vector_raw detailedGpuTimes;  // std::vector<DetailedGpuTime>
     double lastFGFrameTime;
     double presentFrameTime;
+    double lastFGPresentMs;
 };
 
 static_assert(offsetof(state_tail, newBackend) == sizeof(ud_table),
@@ -985,6 +986,9 @@ static_assert(offsetof(state_tail, lastFGFrameTime) == 504, "unexpected State ta
 static_assert(offsetof(state_tail, presentFrameTime) ==
                   offsetof(state_tail, lastFGFrameTime) + sizeof(double),
               "the present interval is declared straight after the rendered one");
+static_assert(offsetof(state_tail, lastFGPresentMs) ==
+                  offsetof(state_tail, presentFrameTime) + sizeof(double),
+              "the present duration is declared straight after the present interval");
 
 /** Where the two flags OptiScaler's FG dispatch watches live, once identified. */
 struct FgFlags {
@@ -1658,10 +1662,22 @@ static void SearchFrameTimes() {
         return;
     }
 
+    // The declared pair is two of three doubles at the end of the tail: the
+    // rendered interval, the presented one, and then the time a single FG
+    // present call took. That third is a duration -- sub-millisecond,
+    // remeasured every frame, and everything a frame interval looks like
+    // except that it is one -- and the search adopted it as half the pair
+    // once, which read a frame rate of 2643 out of a session running at 80.
+    const int slotPair =
+        (int) ((offsetof(state_tail, lastFGFrameTime) - (size_t) FT_SCAN_FIRST) / 8);
+    const int slotDuration =
+        (int) ((offsetof(state_tail, lastFGPresentMs) - (size_t) FT_SCAN_FIRST) / 8);
+
     const double expected = 1000.0 / g_fps;
     int anchor = -1;
     bool ambiguous = false;
     for (int i = 0; i < FT_MAX_SLOTS; i++) {
+        if (i == slotDuration) continue;
         if (!FrameTimeAnchor(current[i], g_ftSnapshot[i], expected)) continue;
         // The two are adjacent, and when nothing is being generated they hold
         // the same interval and both pass -- that is one pair, not two answers.
@@ -1678,16 +1694,33 @@ static void SearchFrameTimes() {
     }
     if (anchor < 0) return;
 
-    // The anchor is one of the pair; the other is the neighbour. Prefer the one
-    // below when it also looks like an interval, so a pair found by its second
-    // member is still reported as a pair. When neither neighbour looks like
-    // anything the anchor is still adopted -- one real interval reported is
-    // worth more than none, and each value is range-checked again on the way
-    // out, so an unrelated neighbour reports as no reading rather than as a
-    // number.
     int start = anchor;
-    if (anchor > 0 && PlausibleInterval(current[anchor - 1])) start = anchor - 1;
-    if (start + 1 >= FT_MAX_SLOTS) start = FT_MAX_SLOTS - 2;
+    if (anchor == slotPair || anchor == slotPair + 1) {
+        // The anchor is half of the declared pair, so the pair is the declared
+        // one: the neighbours outside it are other fields, and the one above
+        // it is a duration. When the other half has never been written --
+        // frame generation has not produced a frame yet -- there is no pair
+        // to adopt: return without latching and without giving up, so the
+        // search is still running when the generator starts and the missing
+        // half exists.
+        if (!PlausibleInterval(current[slotPair]) ||
+            !PlausibleInterval(current[slotPair + 1]))
+            return;
+        start = slotPair;
+    } else {
+        // A layout the mirror does not describe: fall back to the anchor and
+        // its neighbour, preferring the one below when it also looks like an
+        // interval, and never either half of the masked slot. When neither
+        // neighbour looks like anything the anchor is still adopted -- one
+        // real interval reported is worth more than none, and each value is
+        // range-checked again on the way out, so an unrelated neighbour
+        // reports as no reading rather than as a number.
+        if (anchor > 0 && anchor - 1 != slotDuration
+            && PlausibleInterval(current[anchor - 1]))
+            start = anchor - 1;
+        if (start + 1 >= FT_MAX_SLOTS) start = FT_MAX_SLOTS - 2;
+        if (start == slotDuration || start + 1 == slotDuration) return;
+    }
 
     size_t offset = (size_t) (FT_SCAN_FIRST + start * 8);
     g_frameTimes.rendered = (const double*) (base + offset);

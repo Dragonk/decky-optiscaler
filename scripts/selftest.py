@@ -1091,6 +1091,13 @@ def check_live_frame_rates():
     # them, and averaging over that would produce two plausible wrong numbers.
     check("a counter matching neither interval is refused",
           _frame_rates(200.0, 16.6, 33.2) == (None, None))
+    # The FG present duration sits beside the real pair, sub-millisecond and
+    # remeasured every frame, and once passed for the presented interval: a
+    # 0.378 ms reading against a 12.5 ms one scaled a real 80 fps up to a
+    # reported 2643.
+    check("a present duration is not a frame interval",
+          _frame_rates(80.0, 0.378, 12.5) == (None, None)
+          and _frame_rates(80.0, 12.5, 0.378) == (None, None))
     check("an unmeasured interval means no answer",
           _frame_rates(60.0, None, 16.6) == (None, None)
           and _frame_rates(60.0, 16.6, None) == (None, None))

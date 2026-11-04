@@ -3,6 +3,29 @@
 Newest first. Each release ships `Decky OptiScaler.zip` for Decky Loader's
 *Install from URL* (Developer mode), and bundles **OptiScaler 10.0.0-pre1** (nightly 2026-11-04).
 
+## [0.0.25] - 2026-11-04
+
+### Fixed
+
+- **The "with fg" frame rate is no longer scaled by a non-interval.** The
+  in-game plugin searches State for the two frame-interval doubles, and the
+  field right above the pair -- the duration of one FG present call, a
+  sub-millisecond number remeasured every frame -- once passed for an
+  interval: a session running at 80 fps read "2643 with fg". The duration
+  is excluded from the search now, the declared pair is preferred, and the
+  backend refuses to scale by any ratio no frame generator can produce.
+
+### Changed
+
+- **Arming and activation are separate controls.** The Method dropdown no
+  longer requires the frame-generation toggle to be on first: it picks the
+  input/output pair the game reads once at launch, while the toggle only
+  switches the generator on and off -- live, once the session is armed.
+- **The "In game" line says what is missing instead of a bare rate.** When
+  nothing is being generated it reads "restart required" right after the
+  method changes, and "armed, but this session generates no frames" when
+  the session is up and the generator still produces nothing.
+
 ## [0.0.24] - 2026-11-04
 
 ### Fixed
