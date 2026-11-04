@@ -26,7 +26,7 @@ import {
 } from "../config/basic";
 import { curatedLabel } from "../config/labels";
 import { optionById } from "../config/tabs";
-import { AUTO, effectiveValue, labelFor } from "../config/values";
+import { AUTO, asBool, effectiveValue, labelFor } from "../config/values";
 import type { Preset } from "../config/basic";
 import type {
   AutoPlan,
@@ -313,6 +313,13 @@ export function BasicPanel({
     live?.ffx_upscaler_versions, ffxUpsOption, ffxVersionName(ffx));
   const ffxUpsSelected = ffxUpsOption ? effectiveValue(values, ffxUpsOption) : "0";
   const ffxUpsFixed = ffxUpsChoices.options.length < 2;
+
+  // The overlay's two watermark checkboxes, kept out of the Advanced page.
+  // Each is a request to a closed-source runtime, and each is read when that
+  // runtime builds its context -- which is why the write goes out with the
+  // rebuild that makes it read now, not on its own.
+  const fsr4WatermarkOption = optionById("FSR.Fsr4EnableWatermark");
+  const fgWatermarkOption = optionById("FSRFG.EnableWatermark");
 
   const liveFg = typeof live?.fg_enabled === "boolean" ? live.fg_enabled : null;
   // The same order the live tiles read it in — a DX11 game reports its backend
@@ -752,6 +759,58 @@ export function BasicPanel({
           </PanelSectionRow>
         ) : null}
       </PanelSection>
+
+      {/* Each watermark belongs to the thing that prints it: the FSR 4 badge
+          to the FidelityFX upscaler, the FG badge to generated frames -- so
+          each toggle appears only while that thing is configured to run. */}
+      {ffxUpsUsable || fgOn ? (
+        <PanelSection title="Watermarks">
+          {ffxUpsUsable && fsr4WatermarkOption ? (
+            <PanelSectionRow>
+              <ToggleField
+                label="FSR 4 watermark"
+                description={hint(
+                  "Print the running FSR 4 model in the corner of the frame."
+                )}
+                checked={asBool(effectiveValue(values, fsr4WatermarkOption))}
+                disabled={busy}
+                bottomSeparator={fgOn ? "standard" : "none"}
+                onChange={(checked) =>
+                  onApply([
+                    {
+                      section: "FSR",
+                      key: "Fsr4EnableWatermark",
+                      value: checked ? "true" : "false",
+                    },
+                  ])
+                }
+              />
+            </PanelSectionRow>
+          ) : null}
+          {fgOn && fgWatermarkOption ? (
+            <PanelSectionRow>
+              <ToggleField
+                label="Frame generation watermark"
+                description={hint(
+                  "Print the FSR-FG badge on generated frames."
+                )}
+                checked={asBool(effectiveValue(values, fgWatermarkOption))}
+                disabled={busy}
+                bottomSeparator="none"
+                onChange={(checked) =>
+                  onApply([
+                    {
+                      section: "FSRFG",
+                      key: "EnableWatermark",
+                      value: checked ? "true" : "false",
+                    },
+                  ])
+                }
+              />
+            </PanelSectionRow>
+          ) : null}
+        </PanelSection>
+      ) : null}
 
       {/* Last, and only in the Quick Access panel: everything above it takes
           effect in the running game, and this does not. */}

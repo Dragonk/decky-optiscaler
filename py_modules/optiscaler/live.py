@@ -97,7 +97,7 @@ class LiveField:
     """One INI key the ASI can apply without a restart."""
 
     def __init__(self, member, wire_type, encode, needs_backend_change=False,
-                 needs_fg_change=False, needs_feature_rebuild=False):
+                 needs_fg_change=False, needs_feature_rebuild=False, after=None):
         self.member = member
         self.wire_type = wire_type
         self.encode = encode
@@ -110,6 +110,13 @@ class LiveField:
         # further out: the index is read when the *upscaler* builds its context,
         # so the whole feature has to be rebuilt for it to be re-read.
         self.needs_feature_rebuild = needs_feature_rebuild
+        # A verb appended after the write. The closed-source FSR 4 and FSR-FG
+        # runtimes read the MLSR/MLFI-WATERMARK variables when their context is
+        # created, not per frame, so the write alone would sit unnoticed until
+        # the next launch. "apply-backend" asks the ASI to rebuild the upscaler
+        # on the backend Config already holds -- exactly what the overlay's
+        # watermark checkbox does -- and "apply-fg" rebuilds the generator.
+        self.after = after
 
 
 def _bool(value):
@@ -229,12 +236,16 @@ LIVE_FIELDS = {
     "Menu.ShowFps": LiveField("ShowFps", "bool", _bool),
 
     # The watermarks are drawn by the closed-source FSR 4 / FG runtimes, which
-    # read the MLSR-WATERMARK / MLFI-WATERMARK process variables as the game
-    # runs; the ASI mirrors the members into them every loop the same way the
-    # overlay's own checkboxes do, so toggling them from the panel now takes
-    # effect at once instead of on the next launch.
-    "FSR.Fsr4EnableWatermark": LiveField("Fsr4EnableWatermark", "bool", _bool),
-    "FSRFG.EnableWatermark": LiveField("FSRFGEnableWatermark", "bool", _bool),
+    # read the MLSR-WATERMARK / MLFI-WATERMARK variables when their context is
+    # created -- "the driver reads the variable on context creation", as the
+    # overlay puts it beside its own checkboxes. The ASI mirrors the members
+    # into the variables, and the after-verbs ask for the rebuild that
+    # re-creates the context, so a toggle from the panel is read now instead
+    # of at the next launch.
+    "FSR.Fsr4EnableWatermark": LiveField("Fsr4EnableWatermark", "bool", _bool,
+                                         after="apply-backend"),
+    "FSRFG.EnableWatermark": LiveField("FSRFGEnableWatermark", "bool", _bool,
+                                       after="apply-fg"),
 }
 
 
@@ -805,6 +816,9 @@ def apply_changes(target_dir, changes):
             # encoded to for the Config write: it does the code->enum mapping
             # itself, and it is the same table the panel lists.
             backend_codes[ini_key] = _backend(change["value"])
+        if field.after and field.after not in live:
+            # One rebuild covers every watermark write in the command.
+            live.append(field.after)
 
     # One id goes into State::newBackend; the API-specific keys disagree by
     # design (fsr31 on DX12 is fsr31_12 on DX11), so pick by API priority.

@@ -409,10 +409,12 @@ static void DescribeConfigCandidate() {
 // ------------------------------------------------------------- State lookup --
 
 // State is a function-local static, so it lives in OptiScaler's data section
-// rather than the heap, and its first three members are std::strings holding
-// the running executable's filename, the detected game name and its version.
-// The executable filename is something this plugin can compute for itself, so
-// that string is the anchor.
+// rather than the heap, and it opens with the running executable's filename,
+// the detected game name and its version as std::strings. The run is not
+// unbroken in v10: an eight-byte steady_clock time_point (startTime) sits
+// between gameName and gameVersion. The executable filename is still
+// something this plugin can compute for itself, so that string is the
+// anchor.
 
 struct StateLoc {
     unsigned char* base;
@@ -431,11 +433,15 @@ static bool FindState(HMODULE opti, const char* exeName, StateLoc* out) {
             char name[MAX_PATH];
             if (!ReadStdString((const msvc_string*) p, name, sizeof(name))) continue;
             if (_stricmp(name, exeName) != 0) continue;
-            // gameName and gameVersion must at least decode as strings.
+            // gameName and gameVersion must at least decode as strings. The
+            // run is not consecutive in v10: State stores an eight-byte
+            // steady_clock time_point (startTime) between gameName and
+            // gameVersion, so the third string sits one time_point further
+            // on than the second one.
             char scratch[MAX_PATH];
             if (!ReadStdString((const msvc_string*) (p + sizeof(msvc_string)), scratch, sizeof(scratch)))
                 continue;
-            if (!ReadStdString((const msvc_string*) (p + sizeof(msvc_string) * 2), scratch, sizeof(scratch)))
+            if (!ReadStdString((const msvc_string*) (p + sizeof(msvc_string) * 2 + 8), scratch, sizeof(scratch)))
                 continue;
             out->base = p;
             out->window = (size_t) (end - p);
@@ -1838,10 +1844,42 @@ static void WriteStatus(const char* status) {
     CloseHandle(h);
 }
 
+static void SyncWatermarkEnv();
+
+/** Rebuild the frame generator, the way the overlay's FSR-FG watermark
+ *  checkbox does: raise State::fgChanged alone. FSRFG_Dx12::Dispatch sees the
+ *  flag on its next frame and rebuilds the generator, and it is then that the
+ *  closed-source FSR-FG runtime re-reads the MLFI-WATERMARK variable the
+ *  worker mirrors out of Config -- a write without the flag changed nothing
+ *  until the next launch.
+ */
+static bool ApplyFgRefresh() {
+    if (!g_fgFlags.fgChanged) {
+        snprintf(g_error, sizeof(g_error),
+                 "fgChanged not located; the frame generator cannot rebuild now");
+        return false;
+    }
+    if (!Writable(g_fgFlags.fgChanged, 1)) {
+        snprintf(g_error, sizeof(g_error), "State's fgChanged flag is not writable");
+        return false;
+    }
+    // The overlay skips this when frame generation is off: nothing Dispatches,
+    // so nothing would consume the flag, and the generator reads the variable
+    // anyway whenever it next starts.
+    if (g_config && ReadBoolField("FGEnabled") == 0) {
+        LogLine("frame generation is off; the generator reads MLFI-WATERMARK when it starts");
+        return true;
+    }
+    *g_fgFlags.fgChanged = 1;
+    LogLine("fgChanged raised to rebuild the frame generator");
+    return true;
+}
+
 /** Apply one command file. Returns the number of settings written. */
 static int ApplyCommands(char* text) {
     int applied = 0;
     bool wantBackendChange = false;
+    bool wantFgRefresh = false;
     // Whatever went wrong last time is not evidence about this command, and a
     // stale line here reads as a live failure in the panel.
     g_error[0] = 0;
@@ -1871,11 +1909,22 @@ static int ApplyCommands(char* text) {
             if (SetFfxUpscalerIndex(atoi(a))) { applied++; wantBackendChange = true; }
         } else if (strcmp(verb, "apply-backend") == 0) {
             wantBackendChange = true;
+        } else if (strcmp(verb, "apply-fg") == 0) {
+            // The FG watermark's refresh: the closed-source FSR-FG runtime
+            // reads its variable when the generator builds its context.
+            wantFgRefresh = true;
         }
     }
+    // Both rebuilds re-create a driver context, and the watermark variables
+    // are read at that moment -- so they must hold whatever this command just
+    // wrote before the rebuild is asked for, not on the next worker loop.
+    if (wantBackendChange || wantFgRefresh) SyncWatermarkEnv();
     if (wantBackendChange) {
         int marked = MarkBackendsChanged();
         if (marked) applied++;
+    }
+    if (wantFgRefresh) {
+        if (ApplyFgRefresh()) applied++;
     }
     return applied;
 }

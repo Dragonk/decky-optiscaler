@@ -736,6 +736,20 @@ def check_live_control():
         check("the dx12 id wins when several apis are set at once",
               multi["backend"] == "ffx", multi["backend"])
 
+        # The watermarks are read by the closed-source runtimes when their
+        # context is created, so the write alone changes nothing until the
+        # next launch: each command asks for the rebuild that re-creates it.
+        wm = live.apply_changes(str(target), [
+            {"section": "FSR", "key": "Fsr4EnableWatermark", "value": "true"},
+            {"section": "FSRFG", "key": "EnableWatermark", "value": "true"},
+        ])
+        wm_body = (target / live.CMD_FILE).read_text()
+        check("watermark changes ask for the rebuilds that re-read them",
+              wm_body.splitlines()[1:] == ["set Fsr4EnableWatermark bool 1",
+                                           "apply-backend",
+                                           "set FSRFGEnableWatermark bool 1",
+                                           "apply-fg"], wm_body.splitlines())
+
         check("a change with nothing live-settable sends nothing",
               live.apply_changes(str(target), [
                   {"section": "Hotfix", "key": "DisableOverlays", "value": "true"}])["sent"] is False)

@@ -3,6 +3,32 @@
 Newest first. Each release ships `Decky OptiScaler.zip` for Decky Loader's
 *Install from URL* (Developer mode), and bundles **OptiScaler 10.0.0-pre1** (nightly 2026-11-04).
 
+## [0.0.22] - 2026-11-04
+
+### Fixed
+
+- **Live control could not find the running game's State any more.** v10's
+  State stores an eight-byte start time between the game name and the game
+  version, and the scan expected those strings unbroken -- so on the bundled
+  nightly the frame rate never appeared, the upscaler could not be switched,
+  and nothing but the config writes ever landed. The scan now steps over the
+  time point, which restores the frame counter, the backend map, the frame
+  generation flags and the FidelityFX version lists.
+- **Watermark toggles saved but nothing appeared on screen.** The
+  closed-source FSR 4 and FSR-FG runtimes read their watermark variables only
+  when their context is created, so mirroring the setting into the variables
+  changed nothing until the next launch. A watermark change now asks for the
+  same rebuild the overlay's own checkbox asks for -- the upscaler feature
+  for FSR 4, the frame generator for FSR-FG -- and the rebuild is what makes
+  the new value reach the driver.
+
+### Added
+
+- **Watermark toggles on the Basic page.** The two watermark switches no
+  longer need the Advanced tab; each appears beside the part of the panel
+  that runs it -- the FSR 4 badge under the upscaler, the FSR-FG badge under
+  frame generation.
+
 ## [0.0.21] - 2026-11-04
 
 ### Fixed
