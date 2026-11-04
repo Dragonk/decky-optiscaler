@@ -3,6 +3,30 @@
 Newest first. Each release ships `Decky OptiScaler.zip` for Decky Loader's
 *Install from URL* (Developer mode), and bundles **OptiScaler 10.0.0-pre1** (nightly 2026-11-04).
 
+## [0.0.18] - 2026-11-04
+
+### Fixed
+
+- **A loaded live-control plugin that could not attach read as if it never
+  ran.** The in-game ASI writes its status and log beside the ini only once
+  it has located OptiScaler's Config in memory; until then it parks them in
+  the OptiScaler sub-folder its module sits in, and when discovery failed
+  they stayed there for the whole session while the backend read only the
+  game folder. The panel reported "not connected" with no log and no error,
+  on every game alike. The backend now reads that provisional folder too —
+  and treats it as the plugin's own rather than as a mismatch — while the
+  ASI's first guess goes up past the OptiScaler folder to the game root
+  where the ini lives, and adopting that same folder no longer deletes the
+  first log lines. A plugin that loads but cannot attach now says so, with
+  its error, instead of staying silent.
+- **OptiScaler's own log was never written, so loading could not be
+  traced.** v10 ships file logging off by default: without OptiScaler.log
+  there is no answer to "did OptiScaler even search the plugins folder",
+  and no record of what LoadLibrary answered when it did. Installing live
+  control now writes LogToFile, SingleFile and LogLevel (trace) alongside
+  LoadAsiPlugins, and Show diagnostics tails OptiScaler's log after the
+  plugin's own.
+
 ## [0.0.17] - 2026-11-04
 
 ### Fixed
