@@ -2,7 +2,10 @@
 
 OPTISCALER_VERSION = "10.0.0-pre1"
 PAYLOAD_ARCHIVE = "OptiScaler-10.0.0-pre1.7z"
-PAYLOAD_SHA256 = "f75ece86c1235cbbec65093262ca998dc107dda8efccfef1270ebe6f44c22e6e"
+# The nightly build of 2026-11-04, pinned by hash: same version tag, newer
+# tree, FidelityFX SDK 4.1.2 with the INT8/INT8 Lite models. CI fetches it.
+PAYLOAD_URL = "https://github.com/optiscaler/OptiScaler-nightly/releases/download/nightly-20261104/OptiScaler_v10.0.0-pre1_20261104.7z"
+PAYLOAD_SHA256 = "52af019f1fd3838cb27318142e45e30d44b73b09e99c73f6673f523cf8b637d1"
 
 INI_NAME = "OptiScaler.ini"
 LOG_NAME = "OptiScaler.log"
@@ -130,16 +133,17 @@ DEFAULT_PROXY = "dxgi.dll"
 # Support libraries, copied into the game folder. From OptiScaler v10 on, the
 # release keeps them under an ``OptiScaler/`` sub-folder (the ini's
 # ``Libraries/OptiDllPath`` defaults to ``.\OptiScaler``), so the names here are
-# relative to the game folder rather than flat. amdxcffx64/amdvkffx64 are the
-# driver-provided FSR 4 libraries; the Vulkan one (amdvkffx64) is what carries
-# the INT8 RDNA2 and INT8 Lite (FSR 4 Lite) models.
+# relative to the game folder rather than flat. The 2026-11 nightly replaced
+# the driver-provided FSR 4 pair (amdxcffx64/amdvkffx64) with FidelityFX SDK
+# 4.1.2 upscalers in both flavours, DX12 and Vulkan, and both carry the INT8
+# and INT8 Lite (FSR 4 Lite) models.
 PAYLOAD_FILES = [
     "OptiScaler/amd_fidelityfx_framegeneration_dx12.dll",
+    "OptiScaler/amd_fidelityfx_framegeneration_vk.dll",
     "OptiScaler/amd_fidelityfx_loader_dx12.dll",
+    "OptiScaler/amd_fidelityfx_loader_vk.dll",
     "OptiScaler/amd_fidelityfx_upscaler_dx12.dll",
-    "OptiScaler/amd_fidelityfx_vk.dll",
-    "OptiScaler/amdxcffx64.dll",
-    "OptiScaler/amdvkffx64.dll",
+    "OptiScaler/amd_fidelityfx_upscaler_vk.dll",
     "OptiScaler/dlssg_to_fsr3_amd_is_better.dll",
     "OptiScaler/libxell.dll",
     "OptiScaler/libxess.dll",
@@ -183,20 +187,31 @@ EXE_NAME_BLACKLIST = {
     "dxsetup.exe",
     "eossdk-win64-shipping.exe",
     "epicwebhelper.exe",
+    "epicgameslauncher.exe",
+    "epicgamesupdater.exe",
+    "battle.net.exe",
+    "battle.net launcher.exe",
+    "ubisoftconnect.exe",
+    "ubisoftconnectinstaller.exe",
+    "uplay.exe",
+    "eadesktop.exe",
+    "ealauncher.exe",
+    "origin.exe",
+    "amazon games.exe",
+    "amazon games launcher.exe",
+    "galaxy.exe",
     "activationui.exe",
     "touchup.exe",
     "notification_helper.exe",
 }
 
-# FSR4 comes from amd_fidelityfx_upscaler_dx12.dll (the FidelityFX SDK, still
-# 4.1.1 in this v10 release) or from the driver-provided libraries.
-# amdxcffx64.dll is the DX12 driver build; amdvkffx64.dll is the Vulkan one and
-# the only place the INT8 RDNA2 and INT8 Lite models exist — INT8 Lite is what
-# this plugin calls FSR 4 Lite. Both ship in the payload under OptiScaler/.
+# FSR4 comes from the FidelityFX SDK upscalers the payload ships — 4.1.2 in
+# the 2026-11 nightly, which carries the FP8, INT8 and INT8 Lite models in
+# both the DX12 and the Vulkan flavour; INT8 Lite is what this plugin calls
+# FSR 4 Lite.
 FSR4_SUPPORT_FILES = [
-    "OptiScaler/amdxcffx64.dll",
-    "OptiScaler/amdvkffx64.dll",
-    "OptiScaler/amdxc64.dll",
+    "OptiScaler/amd_fidelityfx_upscaler_dx12.dll",
+    "OptiScaler/amd_fidelityfx_upscaler_vk.dll",
 ]
 
 # The FidelityFX SDK dll that actually carries FSR4. FSR 4 arrived with the
@@ -234,9 +249,9 @@ FSR4_BUNDLED_BUILD_ID = "bundled"
 #: The released SDK build, identified by hash like any other. Not downloadable:
 #: it is already in bin/ and is what "reinstall" and "restore" put back.
 FSR4_BUNDLED_FILE_SHA256 = (
-    "d0dcccc74a43c44ba435b7a369b456e0970d8a4464e4bd683119b374f2c9fb46"
+    "aad4fccccb29084a655f9a4f9f613bd22c8c03fb4a0f8840148cc6543b4ccace"
 )
-FSR4_BUNDLED_FILE_BYTES = 28761864
+FSR4_BUNDLED_FILE_BYTES = 57664272
 FSR4_BUILDS = [
     {
         "id": "4.1.1b",

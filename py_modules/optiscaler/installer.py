@@ -233,7 +233,7 @@ def fsr4_status(target_dir):
     ffx = ffx_upscaler_info(target_dir)
     return {
         "files": present,
-        "ready": present.get("OptiScaler/amdxcffx64.dll", False),
+        "ready": present.get(FFX_UPSCALER_DLL, False),
         "required": FSR4_SUPPORT_FILES,
         "ffx": ffx,
         # Which upscaler build this actually is. Read out of the bytes rather

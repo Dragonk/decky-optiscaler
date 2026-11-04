@@ -59,4 +59,4 @@ cli/decky
 out/
 testharness/.bundle.mjs
 
-CLAUDE.md
+CLAUDE.mdbin/*.7z

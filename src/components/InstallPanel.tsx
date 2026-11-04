@@ -15,6 +15,7 @@ import { setLaunchOptions } from "../hooks/useRunningGame";
 import {
   currentLaunchOptions,
   launchOptionFor,
+  mergeLaunchOptions,
   recordPreviousLaunchOptions,
 } from "../launchOptions";
 import { PREF_INSTALL_LAUNCH, isRemembering, recall, remember } from "../prefs";
@@ -185,12 +186,16 @@ export function InstallPanel({ detail, status, appid, live, onChanged }: Props) 
     );
   };
 
-  const applyLaunchOptions = () => {
+  const applyLaunchOptions = async () => {
     if (!appid) return;
-    if (setLaunchOptions(Number(appid), launchOption)) {
-      setLaunchNow(launchOption);
+    // Merge, not replace: a launcher shortcut's options carry the URL that
+    // starts the game, and they must survive our override.
+    const current = await currentLaunchOptions(appid);
+    const merged = mergeLaunchOptions(current, launchOption);
+    if (setLaunchOptions(Number(appid), merged)) {
+      setLaunchNow(merged);
       setLaunchRead(true);
-      toaster.toast({ title: "Launch options set", body: launchOption });
+      toaster.toast({ title: "Launch options set", body: merged });
     } else {
       toaster.toast({ title: "Could not set launch options", body: "Set them manually in Steam." });
     }

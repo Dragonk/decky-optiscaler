@@ -28,9 +28,11 @@ import {
   hasOverride,
   launchChoices,
   launchOptionFor,
+  mergeLaunchOptions,
   recordPreviousLaunchOptions,
   recordedValue,
   resolveChoice,
+  stripOverride,
 } from "../launchOptions";
 import type { LaunchAction, LaunchState } from "../launchOptions";
 import { PREF_REMOVE_LAUNCH, isRemembering, recallLaunchAction, remember } from "../prefs";
@@ -421,22 +423,28 @@ export function SetupChecklist({
    */
   const settling = Boolean(recommendation?.detail_pending) && Boolean(refreshing);
 
-  const applyLaunchOptions = async (value: string) => {
+  const applyLaunchOptions = async (value: string | null) => {
     if (!appid) return;
     // Before writing our own override, keep whatever Steam is passing now: this
     // is the last moment it is still the game's own answer rather than ours.
     // Write-once in the backend, so the install's record wins if there is one.
     if (value && installed) await recordPreviousLaunchOptions(appid, detail.install.path);
-    if (setLaunchOptions(Number(appid), value)) {
+    // value is what we want in the field; null takes our override back out
+    // and leaves everything else the shortcut needs to start its game.
+    const current = await currentLaunchOptions(appid);
+    const written = value === null
+      ? stripOverride(current ?? "", filename)
+      : mergeLaunchOptions(current, value);
+    if (setLaunchOptions(Number(appid), written)) {
       // Shown from what was written rather than read back: Steam flushes its
       // config file on its own schedule, so a read landing in that window
       // reports the old value and the row appears not to have taken.
-      setLaunchNow(value);
+      setLaunchNow(written);
       setLaunchReadable(true);
       void refreshLaunch();
       toaster.toast({
-        title: value ? "Launch options set" : "Launch options cleared",
-        body: value || detail.name,
+        title: written ? "Launch options set" : "Launch options cleared",
+        body: written || detail.name,
       });
     } else {
       toaster.toast({
@@ -485,7 +493,7 @@ export function SetupChecklist({
       }
       if (withLaunch && appid && needsOverride) {
         await recordPreviousLaunchOptions(appid, detail.target);
-        setLaunchOptions(Number(appid), planned.launch_options);
+        await applyLaunchOptions(planned.launch_options);
       }
       toaster.toast({
         title: `${detail.name} is set up`,
@@ -986,7 +994,7 @@ export function SetupChecklist({
                 checked={overrideSet}
                 disabled={busy}
                 bottomSeparator="standard"
-                onChange={(checked) => void applyLaunchOptions(checked ? launchWanted : "")}
+                onChange={(checked) => void applyLaunchOptions(checked ? launchWanted : null)}
               />
             </PanelSectionRow>
           ) : (

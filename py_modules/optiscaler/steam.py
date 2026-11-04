@@ -5,6 +5,7 @@ import re
 import zlib
 from pathlib import Path
 
+from . import launchers
 from .constants import EXE_DIR_BLACKLIST, EXE_NAME_BLACKLIST, STEAM_ROOTS
 
 # Matches `"key"   "value"` pairs in Valve's KeyValues text format.
@@ -285,6 +286,9 @@ def find_shortcut_by_appid(home, appid):
     entry, _ = shortcut_entry(home, appid)
     if not entry:
         return None
+    resolved = _launcher_shortcut(home, appid)
+    if resolved:
+        return resolved
     folder = shortcut_folder(entry.get("exe"), entry.get("startdir"))
     if not folder:
         return None
@@ -526,6 +530,36 @@ def find_exe_dirs(game_path, max_depth=6, limit=40):
     return ordered
 
 
+def _launcher_shortcut(home, appid, exe=None, start_dir=None, name=None):
+    """The game a launcher shortcut launches, when the target is a launcher.
+
+    NonSteamLaunchers adds every store launcher to Steam as a shortcut whose
+    executable is the launcher itself, with the game picked by a URL in the
+    launch options. OptiScaler has to go next to the game's renderer, not into
+    the launcher's UI, so such shortcuts are resolved to the game folder —
+    Epic exactly, from the AppName in its URL against the launcher's own
+    manifests, the rest to the prefix's game-install root. Anything the
+    resolver cannot say falls through to the plain shortcut handling.
+    """
+    entry, _ = shortcut_entry(home, appid) if appid is not None else (None, None)
+    if entry:
+        exe = _unquote(exe or entry.get("exe") or "")
+        start_dir = _unquote(start_dir or entry.get("startdir") or "")
+        name = name or entry.get("appname")
+        options = entry.get("launchoptions")
+        options = options if isinstance(options, str) else ""
+    else:
+        exe = _unquote(exe or "")
+        options = ""
+    game = launchers.resolve_shortcut(exe, start_dir, options, name)
+    if not game:
+        return None
+    game.setdefault("appid", str(appid))
+    game.setdefault("size_on_disk", 0)
+    game.setdefault("library", str(Path(game["path"]).parent))
+    return game
+
+
 def find_by_appid(home, appid, exe=None, start_dir=None, name=None):
     """Locate a game by the app id its library entry uses.
 
@@ -560,6 +594,10 @@ def find_by_appid(home, appid, exe=None, start_dir=None, name=None):
             "size_on_disk": info["size_on_disk"],
             "library": str(library),
         }
+
+    resolved = _launcher_shortcut(home, appid, exe, start_dir, name)
+    if resolved:
+        return resolved
 
     folder = shortcut_folder(exe, start_dir)
     if folder:

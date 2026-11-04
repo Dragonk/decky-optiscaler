@@ -1,9 +1,30 @@
 # Changelog
 
 Newest first. Each release ships `Decky OptiScaler.zip` for Decky Loader's
-*Install from URL* (Developer mode), and bundles **OptiScaler 10.0.0-pre1**.
+*Install from URL* (Developer mode), and bundles **OptiScaler 10.0.0-pre1** (nightly 2026-11-04).
 
-## [Unreleased]
+## [0.0.10] - 2026-11-04
+
+### Added
+
+- **Games from NonSteamLaunchers launchers.** Epic, Battle.net, Ubisoft Connect, EA App,
+  Amazon Games, GOG Galaxy — a shortcut those launchers add points at the launcher's own EXE
+  and only names the game in a URL argument, so the plugin used to install OptiScaler into
+  the launcher's folder and its launch-options override wiped the URL that starts the game
+  at all. Shortcut resolution now follows the launcher URL and the per-launcher install
+  roots inside the Proton prefix, and launch options are merged instead of replaced, so the
+  shortcut keeps everything it needs to start its game.
+- CI fetches the pinned OptiScaler runtime itself. Both workflows download the exact archive
+  the constants pin and verify its SHA-256, so the build is self-tested against the payload
+  the release zip will actually carry.
+
+### Changed
+
+- Bundled runtime refreshed to the **nightly 2026-11-04** build of OptiScaler 10.0.0-pre1.
+  Its FidelityFX backend bundles the SDK 4.1.2 upscalers with the FSR 4 and FSR 4 INT8-Lite
+  models, so FSR 4 needs no extra download on any GPU. Note: the live-control ASI was built
+  against the October pre1 and validates every offset before it writes, so if the nightly
+  moved them the panel falls back to *next launch* settings rather than live ones.
 
 ### Fixed
 

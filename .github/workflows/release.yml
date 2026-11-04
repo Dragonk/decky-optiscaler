@@ -59,6 +59,24 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+
+      # The pinned OptiScaler runtime is too large for git; CI fetches the
+      # exact archive the constants pin and checks its hash, so every build
+      # self-tests against the payload the release zip will actually carry.
+      - name: Fetch pinned OptiScaler runtime
+        run: |
+          python3 - <<'EOF'
+          import hashlib, sys, urllib.request
+          sys.path.insert(0, '.')
+          from py_modules.optiscaler.constants import PAYLOAD_ARCHIVE, PAYLOAD_SHA256, PAYLOAD_URL
+          path = 'bin/' + PAYLOAD_ARCHIVE
+          urllib.request.urlretrieve(PAYLOAD_URL, path)
+          digest = hashlib.sha256(open(path, 'rb').read()).hexdigest()
+          if digest != PAYLOAD_SHA256:
+              raise SystemExit('payload hash mismatch: ' + digest)
+          print('fetched', path)
+          EOF
+
       - name: Typecheck
         run: npx tsc --noEmit
 

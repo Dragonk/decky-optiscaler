@@ -1,8 +1,7 @@
 # Decky OptiScaler
 
-[![Build](https://github.com/danielcamilo1/decky-optiscaler/actions/workflows/build.yml/badge.svg)](https://github.com/danielcamilo1/decky-optiscaler/actions/workflows/build.yml)
-[![Latest release](https://img.shields.io/github/v/release/danielcamilo1/decky-optiscaler)](https://github.com/danielcamilo1/decky-optiscaler/releases/latest)
-[![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/danielcamilo)
+[![Build](https://github.com/Dragonk/decky-optiscaler/actions/workflows/build.yml/badge.svg)](https://github.com/Dragonk/decky-optiscaler/actions/workflows/build.yml)
+[![Latest release](https://img.shields.io/github/v/release/Dragonk/decky-optiscaler)](https://github.com/Dragonk/decky-optiscaler/releases/latest)
 
 A [Decky Loader](https://github.com/SteamDeckHomebrew/decky-loader) plugin that installs and
 configures [OptiScaler](https://github.com/optiscaler/OptiScaler) per game from Game Mode
@@ -10,14 +9,15 @@ configures [OptiScaler](https://github.com/optiscaler/OptiScaler) per game from 
 OptiScaler's settings, with a gamepad. The ones OptiScaler can change on the fly apply to the
 running game; the rest say plainly that they take effect on the next launch.
 
-OptiScaler v10.0.0-pre1 is bundled, together with the driver FSR 4 libraries it reads
-(`amdxcffx64.dll` and `amdvkffx64.dll`, the latter carrying the INT8 Lite model), so
+OptiScaler v10.0.0-pre1 (nightly 2026-11-04) is bundled, together with the FidelityFX SDK
+4.1.2 upscalers it reads (`amd_fidelityfx_upscaler_dx12.dll` and
+`amd_fidelityfx_upscaler_vk.dll`, carrying the FSR 4 and FSR 4 INT8-Lite models), so
 installing works offline and every game gets the same build.
 
 > **Unofficial.** I am an independent developer with no connection to the OptiScaler project.
 > This plugin is not made, endorsed or supported by them — it bundles their release and drives
 > it from the Steam Deck UI. Please report problems with the plugin
-> [here](https://github.com/danielcamilo1/decky-optiscaler/issues), not to the OptiScaler
+> [here](https://github.com/Dragonk/decky-optiscaler/issues), not to the OptiScaler
 > maintainers.
 
 ## What it does
@@ -26,7 +26,12 @@ installing works offline and every game gets the same build.
   `libraryfolders.vdf` including the SD card, non-Steam shortcuts, and any folder you add as a
   custom library. OptiScaler has to sit next to the executable that creates the D3D device, so
   the plugin scores the candidates (Unreal's `Binaries/Win64`, Cyberpunk's `bin/x64`) and lets
-  you override its pick.
+  you override its pick. Shortcuts added by
+  [NonSteamLaunchers](https://github.com/moraroy/NonSteamLaunchers) resolve too: their EXE is
+  the launcher, not the game, so the plugin follows the launcher's URL argument — Epic, Battle.net,
+  Ubisoft Connect, EA App, Amazon Games, GOG Galaxy — to the game's own folder inside the
+  launcher's Proton prefix, and merges its launch options with the shortcut's instead of
+  replacing them.
 - **Sets the game up from the wiki, online or not.** Your game is matched against the OptiScaler
   [Compatibility List](https://github.com/optiscaler/OptiScaler/wiki/Compatibility-List), with a
   search box to pin the right entry. A copy of the list ships with the plugin and the last
@@ -43,8 +48,8 @@ installing works offline and every game gets the same build.
   overlay's own.
 - **FSR 4 Lite on Steam Deck.** Every install writes the v10 switches that reach FSR 4 on
   RDNA 2 — `Fsr4GpuSupport=4` (INT8, "can enable it on unsupported GPUs") and `Fsr4Model=3`
-  (INT8 Lite, the smaller model meant for APUs) — using the driver DLL shipped in the payload,
-  so there is nothing to download. **FSR 4 Lite — Steam Deck** in Basic settings (re)applies
+  (INT8 Lite, the smaller model meant for APUs) — using the FidelityFX SDK upscalers shipped
+  in the payload, so there is nothing to download. **FSR 4 Lite — Steam Deck** in Basic settings (re)applies
   them; **FSR 4** is the native-detection choice for RDNA 3/4. See
   [Steam Deck FSR 4](docs/steam-deck-fsr4.md) for verification, rollback, and limitations.
 - **Changes settings while you play.** A small ASI plugin can apply frame generation, the

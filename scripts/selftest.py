@@ -299,15 +299,6 @@ async def run():
         check("bundled FidelityFX provides FSR4 (>= 4.1.1)",
               ffx["fsr4_capable"], ffx["version"])
 
-        source = root / "fsr4src"
-        source.mkdir()
-        (source / "amdxcffx64.dll").write_bytes(b"AMDXCFFX64" * 64)
-        (source / "amdxc64.dll").write_bytes(b"AMDXC64" * 64)
-        imported = await service.import_fsr4_files(str(target), str(source))
-        check("optional driver FSR4 dlls imported", imported["ok"], imported.get("imported"))
-        check("driver FSR4 dlls detected after import",
-              installer.fsr4_status(str(target))["ready"])
-
         # The FSR 4 builds the panel offers, without the network: they are pinned
         # by hash, so the table can be checked and a local file identified
         # without a download, and installing one is a copy either way.
@@ -336,11 +327,24 @@ async def run():
         check("which setting reaches FSR 4 follows the version, not the GPU",
               fsr4build.reaches_fsr4_by([4, 1, 1, 2740]) == "int8"
               and fsr4build.reaches_fsr4_by([4, 0, 2, 0]) == "upgrade")
+        unknown = root / "unknown-fsr4.dll"
+        unknown.write_bytes(b"NOT A KNOWN FSR4 BUILD" * 64)
         check("the released upscaler is identified by its bytes",
               (fsr4build.identify(target / installer.FFX_UPSCALER_DLL) or {}).get("id")
               == "bundled")
         check("a build that is not one of ours says so",
-              (fsr4build.identify(source / "amdxc64.dll") or {}).get("known") is False)
+              (fsr4build.identify(unknown) or {}).get("known") is False)
+
+        # User-supplied upscalers are the same files the payload ships, so the
+        # import runs after the bundled build has been identified.
+        source = root / "fsr4src"
+        source.mkdir()
+        (source / "amd_fidelityfx_upscaler_dx12.dll").write_bytes(b"AMDFIDELITYFXUPSCALERDX12" * 8)
+        (source / "amd_fidelityfx_upscaler_vk.dll").write_bytes(b"AMDFIDELITYFXUPSCALERVK" * 8)
+        imported = await service.import_fsr4_files(str(target), str(source))
+        check("optional FSR4 upscaler dlls imported", imported["ok"], imported.get("imported"))
+        check("FSR4 upscalers detected after import",
+              installer.fsr4_status(str(target))["ready"])
 
         # Install one from a hand-made "download": the same call the service
         # makes once `fetch` has verified a real one.

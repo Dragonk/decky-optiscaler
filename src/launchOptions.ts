@@ -79,6 +79,40 @@ export function stripOverride(options: string, filename: string): string {
 }
 
 /**
+ * Our override written into whatever the game is launched with today.
+ *
+ * A plain replace used to be enough for a Steam game, which starts with no
+ * launch options of its own. Launcher shortcuts added by NonSteamLaunchers
+ * are different: the URL argument in the options is what makes the shortcut
+ * start a game at all (com.epicgames.launcher://apps/..., bnet://,
+ * uplay://), usually alongside STEAM_COMPAT_DATA_PATH for the prefix.
+ * Replacing the field broke the shortcut outright, so the override is
+ * merged: our WINEDLLOVERRIDES goes with the other environment assignments
+ * before %command%, and everything the game needs after it stays verbatim.
+ */
+export function mergeLaunchOptions(existing: string | null, ours: string): string {
+  const current = (existing ?? "").trim();
+  const wanted = ours.trim();
+  if (!current) return wanted;
+  if (current === wanted) return current;
+  const marker = "%command%";
+  const oi = wanted.indexOf(marker);
+  if (oi < 0) return `${wanted} ${current}`;
+  const ourHead = wanted.slice(0, oi).trim();
+  const ourTail = wanted.slice(oi + marker.length).trim();
+  const ci = current.indexOf(marker);
+  if (ci < 0) {
+    return [ourHead, current, ourTail].filter(Boolean).join(" ");
+  }
+  const head = current.slice(0, ci).trim();
+  const tail = current.slice(ci + marker.length).trim();
+  const alreadyThere = !!ourHead && head.toLowerCase().includes(ourHead.toLowerCase());
+  const mergedHead = alreadyThere || !ourHead ? head : [head, ourHead].filter(Boolean).join(" ");
+  const mergedTail = [ourTail, tail].filter(Boolean).join(" ");
+  return [mergedHead, marker, mergedTail].filter(Boolean).join(" ");
+}
+
+/**
  * What the user can be offered when OptiScaler is removed, best answer first.
  *
  * "Put back what was there" is only offered when there was something — which is
