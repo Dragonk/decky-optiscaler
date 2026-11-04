@@ -31,7 +31,10 @@ installing works offline and every game gets the same build.
   the launcher, not the game, so the plugin follows the launcher's URL argument — Epic, Battle.net,
   Ubisoft Connect, EA App, Amazon Games, GOG Galaxy — to the game's own folder inside the
   launcher's Proton prefix, and merges its launch options with the shortcut's instead of
-  replacing them.
+  replacing them. Xodus Nexus (renamed Nexus Launcher in 0.5) works too: it is a
+  native Linux AppImage, not a Proton prefix, so its shortcuts name the game by id
+  and the plugin reads the launcher's own `launcher-state.json` to find the exact
+  folder.
 - **Sets the game up from the wiki, online or not.** Your game is matched against the OptiScaler
   [Compatibility List](https://github.com/optiscaler/OptiScaler/wiki/Compatibility-List), with a
   search box to pin the right entry. A copy of the list ships with the plugin and the last

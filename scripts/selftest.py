@@ -1301,6 +1301,184 @@ def check_non_steam_shortcut():
         shutil.rmtree(root, ignore_errors=True)
 
 
+def check_launcher_shortcuts():
+    """A shortcut a launcher adds runs the launcher, not the game.
+
+    Six stores do this through NonSteamLaunchers — Epic, Battle.net, Ubisoft
+    Connect, EA App, Amazon Games and GOG Galaxy — and Xodus Nexus does it on
+    its own: a native Linux AppImage, so its shortcuts are ``/bin/sh``
+    wrappers around a script it generates, with the game named by a 16-hex id
+    it keeps in its own ``launcher-state.json``. In every case the folder
+    the target sits in is the launcher's own — the one folder OptiScaler must
+    never be installed into — so the shortcut is resolved to the game's
+    folder instead: Epic exactly, from the AppName in its URL against the
+    launcher's own manifests; the rest to the prefix's game-install root;
+    Xodus to the folder its state file names, and its own shortcut to the
+    root it installs games into.
+    """
+    import json
+    import struct
+    import tempfile
+    from optiscaler import steam as steam_mod
+
+    print("\nLauncher shortcuts")
+
+    def encode(entries):
+        """shortcuts.vdf as Steam writes it: binary KeyValues."""
+        def field(marker, key, payload):
+            return bytes([marker]) + key.encode() + b"\x00" + payload
+
+        out = b""
+        for index, entry in enumerate(entries):
+            body = b""
+            for key, value in entry.items():
+                if isinstance(value, int):
+                    body += field(0x02, key, struct.pack("<i", value))
+                else:
+                    body += field(0x01, key, value.encode() + b"\x00")
+            out += field(0x00, str(index), body + b"\x08")
+        return field(0x00, "shortcuts", out + b"\x08") + b"\x08"
+
+    root = Path(tempfile.mkdtemp(prefix="optiscaler-launcher-")).resolve()
+    try:
+        home = root / "home"
+        steam_root = home / ".local" / "share" / "Steam"
+        config = steam_root / "userdata" / "12345" / "config"
+        config.mkdir(parents=True)
+        (steam_root / "steamapps").mkdir(parents=True)
+        (home / ".steam").mkdir(parents=True, exist_ok=True)
+        os.symlink(steam_root, home / ".steam" / "steam")
+        compat = steam_root / "steamapps" / "compatdata"
+
+        def shortcut(appid, name, exe, start_dir, options):
+            (config / "shortcuts.vdf").write_bytes(encode([
+                {"appid": appid, "AppName": name, "Exe": exe,
+                 "StartDir": start_dir, "LaunchOptions": options},
+            ]))
+            return str(appid & 0xFFFFFFFF)
+
+        # Epic: the AppName in the URL is matched against the manifests the
+        # launcher itself keeps, so the game comes back exactly where it is
+        # installed — never the folder the launcher sits in.
+        epic_prefix = compat / "EpicGamesLauncher"
+        epic_c = epic_prefix / "pfx" / "drive_c"
+        epic_launcher = (epic_c / "Program Files" / "Epic Games" / "Launcher"
+                         / "Portal" / "Binaries" / "Win64")
+        epic_launcher.mkdir(parents=True)
+        (epic_launcher / "EpicGamesLauncher.exe").write_bytes(b"MZ")
+        epic_game = epic_c / "Program Files" / "Epic Games" / "Alan Wake"
+        epic_game.mkdir(parents=True)
+        (epic_game / "AlanWake.exe").write_bytes(b"MZ")
+        manifests = (epic_c / "ProgramData" / "Epic" / "EpicGamesLauncher"
+                     / "Data" / "Manifests")
+        manifests.mkdir(parents=True)
+        (manifests / "alanwake.item").write_text(json.dumps({
+            "AppName": "4a3b08b2aa0840d78d92f16ff9d1ff13",
+            "DisplayName": "Alan Wake",
+            "InstallLocation": "C:\\Program Files\\Epic Games\\Alan Wake",
+        }))
+        appid = shortcut(-1234567801, "Alan Wake",
+                         f'"{epic_launcher / "EpicGamesLauncher.exe"}"',
+                         f'"{epic_launcher}"',
+                         f'STEAM_COMPAT_DATA_PATH="{epic_prefix}/" %command% '
+                         "-'com.epicgames.launcher://apps/"
+                         "4a3b08b2aa0840d78d92f16ff9d1ff13?action=launch&silent=true'")
+        found = steam_mod.find_by_appid(home, appid)
+        check("an Epic shortcut resolves through the launcher's manifests to the named game",
+              found and found["source"] == "epic" and found["path"] == str(epic_game), found)
+
+        # Ubisoft Connect: the URL names the game only the launcher can read,
+        # so the prefix's first known install root answers — and Ubisoft
+        # installs under "Ubisoft Game Launcher/games", not next to the client.
+        ubi_prefix = compat / "UbisoftConnect"
+        ubi_c = ubi_prefix / "pfx" / "drive_c"
+        ubi_launcher = (ubi_c / "Program Files (x86)" / "Ubisoft"
+                        / "Ubisoft Game Launcher")
+        ubi_launcher.mkdir(parents=True)
+        (ubi_launcher / "ubisoftconnect.exe").write_bytes(b"MZ")
+        ubi_game = ubi_launcher / "games" / "Anno 1800"
+        ubi_game.mkdir(parents=True)
+        (ubi_game / "Anno1800.exe").write_bytes(b"MZ")
+        appid = shortcut(-1234567802, "Anno 1800",
+                         f'"{ubi_launcher / "ubisoftconnect.exe"}"',
+                         f'"{ubi_launcher}"',
+                         f'STEAM_COMPAT_DATA_PATH="{ubi_prefix}/" %command% '
+                         "--uplay://launch/9999")
+        found = steam_mod.find_by_appid(home, appid)
+        check("a Ubisoft shortcut resolves to the games root it installs under, not the launcher",
+              found and found["source"] == "ubisoft-prefix" and found["path"] == str(ubi_game.parent), found)
+
+        # GOG Galaxy: the shortcut points at the client, the games sit in the
+        # prefix's "GOG Games" folder.
+        gog_prefix = compat / "GALAXY"
+        gog_c = gog_prefix / "pfx" / "drive_c"
+        gog_launcher = gog_c / "Program Files (x86)" / "GOG Galaxy"
+        gog_launcher.mkdir(parents=True)
+        (gog_launcher / "galaxy.exe").write_bytes(b"MZ")
+        gog_game = gog_c / "GOG Games" / "The Witcher 3"
+        gog_game.mkdir(parents=True)
+        (gog_game / "witcher3.exe").write_bytes(b"MZ")
+        appid = shortcut(-1234567803, "The Witcher 3",
+                         f'"{gog_launcher / "galaxy.exe"}"',
+                         f'"{gog_launcher}"',
+                         f'STEAM_COMPAT_DATA_PATH="{gog_prefix}/" %command% '
+                         "--gog://launch/1207658924")
+        found = steam_mod.find_by_appid(home, appid)
+        check("a GOG shortcut resolves to the prefix's GOG Games root",
+              found and found["source"] == "gog-prefix" and found["path"] == str(gog_game.parent), found)
+
+        # Xodus Nexus: native Linux, no prefix at all. The state file next to
+        # the script the shortcut runs names the game's folder exactly.
+        nexus = home / ".config" / "xodus-nexus"
+        (nexus / "shortcuts").mkdir(parents=True)
+        (nexus / "shortcuts" / "launch-game").write_text("#!/bin/sh\n")
+        nexus_root = home / "Games" / "Xodus Nexus"
+        nexus_game = nexus_root / "DOOM Eternal"
+        nexus_game.mkdir(parents=True)
+        (nexus_game / "DOOMEternalx64vk.exe").write_bytes(b"MZ")
+        (nexus / "launcher-state.json").write_text(json.dumps({
+            "games": [{"id": "80454a304a71cb22", "title": "DOOM Eternal",
+                       "path": str(nexus_game)}],
+            "settings": {"installRoot": str(nexus_root)},
+        }))
+        script = nexus / "shortcuts" / "launch-game"
+        appid = shortcut(-1234567804, "DOOM Eternal",
+                         "/bin/sh", f'"{nexus / "shortcuts"}"',
+                         f"'{script}' '80454a304a71cb22'")
+        found = steam_mod.find_by_appid(home, appid)
+        check("a Xodus Nexus shortcut resolves to the game its state file names",
+              found and found["source"] == "xodus" and found["path"] == str(nexus_game), found)
+
+        appid = shortcut(-1234567805, "Nexus Launcher",
+                         "/bin/sh", f'"{nexus / "shortcuts"}"',
+                         f"'{nexus / "shortcuts" / "launch-nexus"}'")
+        found = steam_mod.find_by_appid(home, appid)
+        check("and the launcher's own shortcut to the root it installs games into",
+              found and found["source"] == "xodus-launcher" and found["path"] == str(nexus_root), found)
+
+        # Failures refuse the fallback: an unknown id must not quietly point
+        # the plugin at /bin, and an empty launcher prefix must not point it
+        # at the launcher's own folder — which is what installing OptiScaler
+        # into the launcher used to mean.
+        appid = shortcut(-1234567806, "Ghost Game",
+                         "/bin/sh", f'"{nexus / "shortcuts"}"',
+                         f"'{script}' 'deadbeefdeadbeef'")
+        check("an unknown Xodus id yields nothing rather than /bin",
+              steam_mod.find_by_appid(home, appid) is None)
+
+        bare = compat / "EmptyPrefix" / "pfx"
+        bare.mkdir(parents=True)
+        (bare / "ubisoftconnect.exe").write_bytes(b"MZ")
+        appid = shortcut(-1234567807, "Ghost Launcher",
+                         f'"{bare / "ubisoftconnect.exe"}"', f'"{bare}"',
+                         f'STEAM_COMPAT_DATA_PATH="{compat / "EmptyPrefix"}/" '
+                         "%command% --uplay://launch/9999")
+        check("an unresolvable launcher shortcut yields nothing rather than the launcher's folder",
+              steam_mod.find_by_appid(home, appid) is None)
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
 def check_wiki_failure_reporting():
     """A list that will not download must not read as "your game is not on it".
 
@@ -2747,6 +2925,7 @@ def main():
     check_launch_record()
     check_launch_options_read()
     check_non_steam_shortcut()
+    check_launcher_shortcuts()
     check_asi_reporting()
     check_asi_staleness()
     check_reported_folder()

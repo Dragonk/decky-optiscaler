@@ -21,6 +21,14 @@ This module resolves such a shortcut to a folder that actually holds games:
   executables above anything else, and the launcher binaries themselves are
   blacklisted, so OptiScaler never hooks a launcher UI again. The user can
   always override the pick in the UI.
+* Xodus Nexus — renamed **Nexus Launcher** in 0.5 — is none of the above: a
+  native Linux AppImage, so there is no Proton prefix and no drive_c. Its
+  Steam shortcuts are ``/bin/sh`` wrappers around a script the launcher
+  generates (``<profile>/shortcuts/launch-game <16-hex id>``), and the
+  folder each game is installed in is recorded in the launcher's own
+  ``launcher-state.json``, next to that script. The id is matched against
+  that file exactly, like Epic's manifests; the launcher's own shortcut
+  resolves to the folder Nexus installs games into.
 
 Failures are silent on purpose: anything this module cannot say with
 confidence falls back to the plain shortcut handling.
@@ -61,20 +69,34 @@ LAUNCHER_URIS = (
     "gog://",
 )
 
+# Xodus Nexus / Nexus Launcher: a native Linux launcher, so its shortcut is
+# /bin/sh running a script it generated, with the game named by a 16-hex id.
+XODUS_SHORTCUT = re.compile(r"([^\s'\"]*shortcuts/launch-(game|nexus))")
+XODUS_DIRECT = re.compile(r"--launch-game\s+['\"]?([0-9a-f]{16})")
+XODUS_GAME_ID = re.compile(r"\b([0-9a-f]{16})\b")
+XODUS_STATE = "launcher-state.json"
+XODUS_DEFAULT_SCRIPT = Path(".config") / "xodus-nexus" / "shortcuts" / "launch-game"
+
 # Where each launcher's prefix keeps installed games, relative to drive_c.
 # First one that exists wins; drive_c itself is the fallback.
 LAUNCHER_GAME_ROOTS = {
     "epic": ["Program Files/Epic Games", "Program Files (x86)/Epic Games",
              "Program Files"],
     "battlenet": ["Program Files (x86)", "Program Files"],
-    "ubisoft": ["Program Files (x86)/Ubisoft", "Program Files/Ubisoft",
+    "ubisoft": ["Program Files (x86)/Ubisoft/Ubisoft Game Launcher/games",
+                "Program Files/Ubisoft/Ubisoft Game Launcher/games",
+                "Program Files (x86)/Ubisoft", "Program Files/Ubisoft",
                 "Program Files (x86)"],
     "ea": ["Program Files/EA Games", "Program Files (x86)/Origin Games",
            "Program Files (x86)/EA Games", "Program Files (x86)"],
-    "amazon": ["Program Files/Amazon Games",
+    "amazon": ["Program Files/Amazon Games/Library",
+               "Program Files (x86)/Amazon Games/Library",
+               "Program Files/Amazon Games",
                "Program Files (x86)/Amazon Games", "Program Files"],
     "gog": ["Program Files (x86)/GOG Galaxy/Games",
-            "Program Files/GOG Galaxy/Games", "Program Files (x86)"],
+            "Program Files/GOG Galaxy/Games",
+            "Program Files (x86)/GOG Games", "GOG Games",
+            "Program Files (x86)"],
 }
 
 EPIC_MANIFESTS = "ProgramData/Epic/EpicGamesLauncher/Data/Manifests"
@@ -98,7 +120,7 @@ def _prefix_drive_c(path):
 
 def _windows_path(location, drive_c):
     """``C:\\Program Files\\X`` mapped into the prefix's drive_c."""
-    text = (location or "").replace("\\\\", "/").strip()
+    text = (location or "").replace("\\", "/").strip()
     parts = [p for p in text.split("/") if p]
     if parts and len(parts[0]) == 2 and parts[0][1] == ":":
         parts = parts[1:]
@@ -140,6 +162,75 @@ def _game_root(launcher, drive_c):
     return drive_c if drive_c.is_dir() else None
 
 
+def _xodus_state(script):
+    """The parsed launcher-state.json of the profile a launch script belongs to."""
+    state = Path(script).parent.parent / XODUS_STATE
+    try:
+        data = json.loads(state.read_text(encoding="utf-8", errors="replace"))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _xodus_game(data, game_id, name=None):
+    """The installed game a 16-hex shortcut id names, from the state file."""
+    for game in data.get("games") or []:
+        if not isinstance(game, dict) or game.get("id") != game_id:
+            continue
+        folder = game.get("path")
+        if folder and Path(folder).is_dir():
+            return {"name": game.get("title") or name or "Xodus Nexus game",
+                    "path": str(folder), "source": "xodus"}
+    return None
+
+
+def _xodus_shortcut(options, name=None):
+    """The install folder a Xodus Nexus shortcut's game lives in, or None."""
+    match = XODUS_SHORTCUT.search(options)
+    if match:
+        data = _xodus_state(match.group(1))
+        if data is None:
+            return None
+        if match.group(2) == "game":
+            ids = XODUS_GAME_ID.findall(options.replace(match.group(1), " "))
+            return _xodus_game(data, ids[-1], name) if ids else None
+        # The launcher's own shortcut: the folder Nexus installs games into,
+        # so the UI has something better than /bin to point at.
+        root = (data.get("settings") or {}).get("installRoot")
+        if root and Path(root).is_dir():
+            return {"name": name or "Xodus Nexus", "path": str(root),
+                    "source": "xodus-launcher"}
+        return None
+    # A shortcut that calls the AppImage with --launch-game itself — the way a
+    # tool other than Nexus wires it up. Without the script's path the default
+    # profile is the only place the state can be.
+    direct = XODUS_DIRECT.search(options)
+    if direct:
+        data = _xodus_state(Path.home() / XODUS_DEFAULT_SCRIPT)
+        if data is not None:
+            return _xodus_game(data, direct.group(1), name)
+    return None
+
+
+def is_launcher_shortcut(exe=None, options=""):
+    """Whether a shortcut is one of the launchers' wrappers, not a game.
+
+    Every shortcut NonSteamLaunchers adds for a store launcher, and every one
+    Xodus Nexus generates for itself, runs the launcher rather than the game,
+    so the folder its target sits in is the one folder it must never be
+    resolved to. This is what lets the caller refuse the plain fallback when
+    resolution came back empty, instead of installing OptiScaler next to the
+    launcher's own UI.
+    """
+    exe_name = Path(exe).name.lower() if exe else ""
+    options = options or ""
+    if LAUNCHER_EXES.get(exe_name):
+        return True
+    if XODUS_SHORTCUT.search(options) or XODUS_DIRECT.search(options):
+        return True
+    return any(uri in options for uri in LAUNCHER_URIS)
+
+
 def resolve_shortcut(exe, start_dir=None, options="", name=None):
     """The game folder a launcher shortcut launches, or None.
 
@@ -151,6 +242,11 @@ def resolve_shortcut(exe, start_dir=None, options="", name=None):
     """
     exe_name = Path(exe).name.lower() if exe else ""
     options = options or ""
+    # Xodus Nexus first: it is native Linux, so there is no prefix at all and
+    # its own state file says exactly where the game is.
+    xodus = _xodus_shortcut(options, name)
+    if xodus is not None:
+        return xodus
     launcher = LAUNCHER_EXES.get(exe_name)
     if launcher is None:
         for uri in LAUNCHER_URIS:

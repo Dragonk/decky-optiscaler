@@ -3,6 +3,34 @@
 Newest first. Each release ships `Decky OptiScaler.zip` for Decky Loader's
 *Install from URL* (Developer mode), and bundles **OptiScaler 10.0.0-pre1** (nightly 2026-11-04).
 
+## [0.0.11] - 2026-11-04
+
+### Added
+
+- **Xodus Nexus / Nexus Launcher games.** Xodus is native Linux — an AppImage,
+  not a Windows launcher inside a Proton prefix — so its Steam shortcuts are
+  ``/bin/sh`` wrappers around a script it generates, with the game named by a
+  16-hex id it keeps in its own ``launcher-state.json``. The plugin reads that
+  state file and resolves each shortcut to the exact game folder it names, and
+  the launcher's own shortcut to the root it installs games into. Encrypted-exe
+  games start through a temporary chain view that symlinks back to the install
+  folder, so the game folder stays the right target either way.
+- Deeper default install roots for Ubisoft Connect, Amazon Games and GOG Galaxy
+  prefixes — the games sit one level below the folders the first guess assumed.
+
+### Fixed
+
+- **Epic games silently fell back to the install root.** The path mapping that
+  reads Epic's ``.item`` manifests escaped its own backslash twice, so
+  ``InstallLocation`` never matched a folder on disk and every Epic shortcut
+  resolved to ``Program Files/Epic Games`` instead of the game its URL names.
+  The launcher-shortcut selftest added for this release caught it; 0.0.10
+  shipped with it.
+- A launcher shortcut that resolves to nothing — an unknown Xodus id, an empty
+  launcher prefix — now yields no folder at all instead of falling back to the
+  launcher's own or ``/bin``, the folders this whole mechanism exists to keep
+  OptiScaler out of.
+
 ## [0.0.10] - 2026-11-04
 
 ### Added

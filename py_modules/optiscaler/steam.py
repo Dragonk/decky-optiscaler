@@ -286,9 +286,13 @@ def find_shortcut_by_appid(home, appid):
     entry, _ = shortcut_entry(home, appid)
     if not entry:
         return None
-    resolved = _launcher_shortcut(home, appid)
+    resolved, launcher_only = _launcher_shortcut(home, appid)
     if resolved:
         return resolved
+    if launcher_only:
+        # A launcher's shortcut with no game behind it: no folder at all is
+        # better than the launcher's own.
+        return None
     folder = shortcut_folder(entry.get("exe"), entry.get("startdir"))
     if not folder:
         return None
@@ -539,7 +543,10 @@ def _launcher_shortcut(home, appid, exe=None, start_dir=None, name=None):
     the launcher's UI, so such shortcuts are resolved to the game folder —
     Epic exactly, from the AppName in its URL against the launcher's own
     manifests, the rest to the prefix's game-install root. Anything the
-    resolver cannot say falls through to the plain shortcut handling.
+    resolver cannot say falls through to the plain shortcut
+    handling — unless the shortcut is still one of the launchers' own, in
+    which case the answer is nothing at all: the launcher's folder is the bug
+    this hook exists to prevent.
     """
     entry, _ = shortcut_entry(home, appid) if appid is not None else (None, None)
     if entry:
@@ -553,11 +560,14 @@ def _launcher_shortcut(home, appid, exe=None, start_dir=None, name=None):
         options = ""
     game = launchers.resolve_shortcut(exe, start_dir, options, name)
     if not game:
-        return None
+        # Second opinion for the caller: a wrapper with no game behind it is
+        # only allowed the plain fallback when it is not one of the launchers'
+        # own shortcuts, whose folder would be the launcher's.
+        return None, launchers.is_launcher_shortcut(exe, options)
     game.setdefault("appid", str(appid))
     game.setdefault("size_on_disk", 0)
     game.setdefault("library", str(Path(game["path"]).parent))
-    return game
+    return game, False
 
 
 def find_by_appid(home, appid, exe=None, start_dir=None, name=None):
@@ -595,9 +605,13 @@ def find_by_appid(home, appid, exe=None, start_dir=None, name=None):
             "library": str(library),
         }
 
-    resolved = _launcher_shortcut(home, appid, exe, start_dir, name)
+    resolved, launcher_only = _launcher_shortcut(home, appid, exe, start_dir, name)
     if resolved:
         return resolved
+    if launcher_only:
+        # A launcher's shortcut with no game behind it: no folder at all is
+        # better than the launcher's own.
+        return None
 
     folder = shortcut_folder(exe, start_dir)
     if folder:
