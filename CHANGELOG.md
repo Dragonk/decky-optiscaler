@@ -36,6 +36,20 @@ Newest first. Each release ships `Decky OptiScaler.zip` for Decky Loader's
   absolute path from OptiScaler's own `Config` and writes there, removing the
   provisional status file it had already left in the wrong folder.
 
+- **Reinstall no longer clobbers a selected FSR 4 community build, and
+  uninstall no longer restores our own libraries as the game's.** The payload
+  copies the `OptiScaler/` directory wholesale, after the file loop had already
+  skipped the community upscaler it holds — so a reinstall silently restored
+  the bundled FSR 4 library over it. And the directory backup was taken only
+  after the files loop had placed our libraries inside `OptiScaler/`, so an
+  uninstall could put them back as if the game shipped them. Directory backups
+  are now taken before anything is placed, and the directory copy preserves
+  the selected build's upscaler the same way the file copy does. The FSR 4
+  lifecycle test these paths had never run on the v10 branch is green again,
+  and the live-controls harness — which still asserted the pre-v10 ini keys
+  (`Fsr4Update`, `Fsr4ForceEnableInt8`, the `fsr31` backend) — is ported to
+  the v10 ones.
+
 ## [0.0.9] - 2026-10-21
 
 FSR 4 Lite on the Steam Deck, on OptiScaler v10.

@@ -344,6 +344,7 @@ def _replace_fsr4(target, source, recorded, enable_int8=False):
                 (staging / name).parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(target / name, staging / name)
         try:
+            (target / FFX_UPSCALER_DLL).parent.mkdir(parents=True, exist_ok=True)
             atomic_copy(source, target / FFX_UPSCALER_DLL)
             if enable_int8:
                 if not existed[INI_NAME]:
@@ -640,6 +641,16 @@ def install(target_dir, payload_root, filename=DEFAULT_PROXY, preserve_ini=True,
     # game's own.
     pre_existing = {entry.name for entry in target.iterdir()}
 
+    # Directory backups are taken before anything is placed in them. The
+    # payload keeps its libraries inside OptiScaler/, and a backup taken
+    # after the files loop would capture those libraries and later restore
+    # them as if they were the game's own.
+    for name in PAYLOAD_DIRS:
+        dest = target / name
+        if (dest.is_dir() and name in pre_existing
+                and name not in backups and name not in old_dirs):
+            backups[name] = _stash(target, dest, logger)
+
     # Remove a previous install under a different filename so the game does not
     # end up loading OptiScaler twice.
     restored_proxies = set()
@@ -701,10 +712,15 @@ def install(target_dir, payload_root, filename=DEFAULT_PROXY, preserve_ini=True,
         if not src.is_dir():
             continue
         dest = target / name
-        if (dest.exists() and name in pre_existing
-                and name not in backups and name not in old_dirs):
-            backups[name] = _stash(target, dest, logger)
-        shutil.copytree(src, dest, dirs_exist_ok=True)
+        # Stashed above, before the files loop ran: taking it here would
+        # capture the payload's own libraries. copytree overwrites everything
+        # inside the directory, which would
+        # clobber the FSR 4 library a selected community build replaced even
+        # though the files loop above skipped it. Preserve it here too.
+        ignore = None
+        if selected_build and str(Path(FFX_UPSCALER_DLL).parent) == name:
+            ignore = shutil.ignore_patterns(Path(FFX_UPSCALER_DLL).name)
+        shutil.copytree(src, dest, dirs_exist_ok=True, ignore=ignore)
         if name not in created_dirs:
             created_dirs.append(name)
 

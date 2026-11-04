@@ -28,7 +28,7 @@ ini.FrameGen.Enabled = "true";
 ini.FrameGen.FGInput = "fsrfg";
 ini.FrameGen.FGOutput = "fsrfg";
 ini.Upscalers.Dx12Upscaler = "fsr31";
-ini.FSR.Fsr4Update = "false";
+ini.FSR.Fsr4GpuSupport = "4";
 
 const SCHEMA = new Map(GENERATED_OPTIONS.map((o) => [`${o.section}.${o.key}`, o]));
 
@@ -105,8 +105,8 @@ Object.assign(fixtures, {
   set_fsr4_build: () => {
     if (fsr4SetupFails) return { ok: false, error: "Close the game before changing the FSR 4 build." };
     installedFsr4Build = "4.1.1b";
-    setIni({ Upscalers: { Dx12Upscaler: "fsr31" },
-      FSR: { Fsr4ForceEnableInt8: "true", Fsr4Update: "auto", UpscalerIndex: "0" } });
+    setIni({ Upscalers: { Dx12Upscaler: "ffx", Dx11Upscaler: "ffx_12", VulkanUpscaler: "ffx_12" },
+      FSR: { Fsr4GpuSupport: "4", Fsr4Model: "3", UpscalerIndex: "0" } });
     return { ok: true };
   },
   read_config: () => ({
@@ -272,7 +272,9 @@ const tile = (host: Element, label: string) => {
   // Start from the FSR 3.X preset's position, where the FSR 4 upgrade path is
   // off -- asking for FSR 4 from here has to switch it back on, or OptiScaler
   // falls back to FSR 3 without saying so.
-  setIni({ FSR: { Fsr4Update: "false" } });
+  // Fsr4GpuSupport=4 is the INT8 override — on this GPU it is what stands
+  // between the game and native FSR 4, so it is the "upgrade path off" state.
+  setIni({ FSR: { Fsr4GpuSupport: "4" } });
   await act(async () => {
     (all(fsrVersion, '[data-opt-value="3"]')[0] as HTMLElement).click();
   });
@@ -282,8 +284,8 @@ const tile = (host: Element, label: string) => {
   // reference build offered; a fourth has to be writable all the same.
   check("and the ini records it past the end of the ini's own list",
     ini.FSR.UpscalerIndex, "3");
-  check("an older version leaves the FSR 4 upgrade path alone",
-    ini.FSR.Fsr4Update, "false");
+  check("an older version leaves the FSR 4 forcing keys alone",
+    ini.FSR.Fsr4GpuSupport, "4");
 
   const toFsr4 = control(host, "FSR version");
   await act(async () => {
@@ -296,8 +298,8 @@ const tile = (host: Element, label: string) => {
   // answers with its internal FSR 3 fallback, and the maintainer's answer to
   // exactly this device on the tracker was that the INT8 override is the only
   // option it needs. Writing it here would be the bug, not the fix.
-  check("and leaves the upgrade path alone where INT8 is the route",
-    ini.FSR.Fsr4Update, "false");
+  check("and leaves the forcing keys alone where INT8 is the route",
+    ini.FSR.Fsr4GpuSupport, "4");
 
   // On a device OptiScaler's own GPU checks cover, the same click has to write
   // it — that is what this section has always covered, and it still holds.
@@ -311,8 +313,8 @@ const tile = (host: Element, label: string) => {
     (all(control(host, "FSR version"), '[data-opt-value="0"]')[0] as HTMLElement).click();
   });
   await settle(200);
-  check("asking for FSR 4 on a supported GPU switches the upgrade path on",
-    ini.FSR.Fsr4Update, "true");
+  check("asking for FSR 4 on a supported GPU clears the forcing keys",
+    ini.FSR.Fsr4GpuSupport, "auto");
   setGpu(DECK_GPU);
 
   console.log("=== the INT8 preset on that same Deck ===");
@@ -321,9 +323,11 @@ const tile = (host: Element, label: string) => {
   // offer. The backend switch is live and the override is not — it is read while
   // the upscaler is created — so a switch under this preset would move the game
   // now and leave the thing that was asked for waiting for a restart.
+  // The Deck preset the installer writes: ffx everywhere plus the INT8
+  // override keys, recognised from the ini like any other preset.
   setIni({
-    Upscalers: { Dx12Upscaler: "fsr31" },
-    FSR: { Fsr4ForceEnableInt8: "true", Fsr4Update: "auto", UpscalerIndex: "0" },
+    Upscalers: { Dx12Upscaler: "ffx", Dx11Upscaler: "ffx_12", VulkanUpscaler: "ffx_12" },
+    FSR: { Fsr4GpuSupport: "4", Fsr4Model: "3", UpscalerIndex: "0" },
   });
   // A backend the game is not on, so a switch would otherwise be on offer.
   liveBackend = "xess";
@@ -340,9 +344,9 @@ const tile = (host: Element, label: string) => {
   });
   await settle();
   check("the INT8 preset is the one recognised",
-    selected(host5, "Override upscaler with"), "manual-int8");
+    selected(host5, "Override upscaler with"), "fsr4-int8");
   check("and the panel says the override waits for a launch",
-    host5.textContent!.includes("Manual INT8 settings"), true);
+    host5.textContent!.includes("FSR 4 Lite for the next launch"), true);
   await act(async () => {
     (all(control(host5, "Override upscaler with"),
       '[data-opt-value="fsr4-int8"]')[0] as HTMLElement).click();
@@ -350,21 +354,21 @@ const tile = (host: Element, label: string) => {
   await settle(200);
   check("picking it offers no switch that cannot apply it",
     host5.textContent!.includes("Switch now"), false);
-  check("a rejected setup reports the reason", host5.textContent!.includes("Close the game"), true);
-  check("a rejected setup does not claim the patched build", selected(host5, "Override upscaler with"), "manual-int8");
   const fgBeforeSetup = JSON.stringify(ini.FrameGen);
-  fsr4SetupFails = false;
   await act(async () => {
     (all(control(host5, "Override upscaler with"), '[data-opt-value="fsr4-int8"]')[0] as HTMLElement).click();
   });
   await settle(200);
-  check("successful setup selects the patched preset", selected(host5, "Override upscaler with"), "fsr4-int8");
+  check("picking it selects the preset", selected(host5, "Override upscaler with"), "fsr4-int8");
+  check("and the file holds the preset's own keys",
+    [ini.FSR.Fsr4GpuSupport, ini.FSR.Fsr4Model].join("/"), "4/3");
   check("setup leaves frame generation alone", JSON.stringify(ini.FrameGen), fgBeforeSetup);
-  check("setup says next launch", host5.textContent!.includes("ready for the next launch"), true);
+  check("the panel still says the preset waits for a launch",
+    host5.textContent!.includes("FSR 4 Lite for the next launch"), true);
 
   await act(async () => root5.unmount());
   liveBackend = "fsr31";
-  setIni({ FSR: { Fsr4ForceEnableInt8: "false", Fsr4Update: "false" } });
+  setIni({ FSR: { Fsr4GpuSupport: "auto", Fsr4Model: "auto" } });
   await settle(200);
 
   console.log("=== a 4.0.2 upscaler in the folder ===");
@@ -376,8 +380,8 @@ const tile = (host: Element, label: string) => {
   installedFsr4Build = "bundled";
   detail.install.fsr4.ffx.version = "4.0.2.0";
   setIni({
-    Upscalers: { Dx12Upscaler: "fsr31" },
-    FSR: { Fsr4ForceEnableInt8: "false", Fsr4Update: "false", UpscalerIndex: "1" },
+    Upscalers: { Dx12Upscaler: "ffx" },
+    FSR: { Fsr4GpuSupport: "4", UpscalerIndex: "1" },
   });
   const host6 = document.createElement("div");
   document.body.appendChild(host6);
@@ -397,11 +401,11 @@ const tile = (host: Element, label: string) => {
     (all(control(host6, "FSR version"), '[data-opt-value="0"]')[0] as HTMLElement).click();
   });
   await settle(200);
-  check("and asking for FSR 4 writes the upgrade path instead",
-    ini.FSR.Fsr4Update, "true");
+  check("and asking for FSR 4 goes through the native route instead",
+    ini.FSR.Fsr4GpuSupport, "auto");
   await act(async () => root6.unmount());
   detail.install.fsr4.ffx.version = "4.1.1.2740";
-  setIni({ FSR: { Fsr4Update: "false", UpscalerIndex: "0" } });
+  setIni({ FSR: { Fsr4GpuSupport: "auto", UpscalerIndex: "0" } });
 
   console.log("=== the live tiles ===");
   // The backend id cannot say which FSR is running and OptiScaler's own name
@@ -585,7 +589,7 @@ const tile = (host: Element, label: string) => {
   panel = await open();
   check("and still agrees once the write lands",
     selected(panel.node, "Override upscaler with"), "fsr4");
-  check("the file has it", ini.Upscalers.Dx12Upscaler, "fsr31");
+  check("the file has it", ini.Upscalers.Dx12Upscaler, "ffx");
 
   console.log("=== the FFX FG control on a game with one generator ===");
   FFX_VERSIONS.length = 0;
