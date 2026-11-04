@@ -251,7 +251,8 @@ def control_dirs(target_dir):
     while the game runs, so it is re-asked on every call.
     """
     dirs = [Path(target_dir)]
-    dirs.extend(launchers.chain_view_dirs(target_dir))
+    for _view, inside in launchers.launch_views_around(target_dir):
+        dirs.append(inside)
     return dirs
 
 
@@ -358,9 +359,9 @@ def install_asi(target_dir, source, logger=None):
     result = install_plugin_asi(target_dir, source, ASI_NAME, logger)
     if not result.get("ok"):
         return result
-    for view in launchers.chain_view_dirs(target_dir):
+    for view, inside in launchers.launch_views_around(target_dir):
         try:
-            destination = view / PLUGIN_SUBDIR / ASI_NAME
+            destination = inside / PLUGIN_SUBDIR / ASI_NAME
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(Path(source).read_bytes())
             if logger:
@@ -391,9 +392,9 @@ def remove_asi(target_dir, logger=None):
     # A running view may hold its own copies of the same files; they die with
     # the view when the launch ends, but a live session should stop answering
     # the moment its module is removed.
-    for view in launchers.chain_view_dirs(target_dir):
-        for path in (view / PLUGIN_SUBDIR / ASI_NAME,
-                     view / CMD_FILE, view / STATUS_FILE, view / LOG_FILE):
+    for view, inside in launchers.launch_views_around(target_dir):
+        for path in (inside / PLUGIN_SUBDIR / ASI_NAME,
+                     inside / CMD_FILE, inside / STATUS_FILE, inside / LOG_FILE):
             try:
                 if path.is_file():
                     path.unlink()
@@ -581,7 +582,7 @@ def _read_measurements(report, raw):
 
 def status(target_dir, source=None):
     """What the in-game side is doing right now."""
-    views = launchers.chain_view_dirs(target_dir)
+    views = [inside for _view, inside in launchers.launch_views_around(target_dir)]
     path = _newest_control_file(target_dir, STATUS_FILE)
     report = {
         "asi_installed": installed(target_dir),

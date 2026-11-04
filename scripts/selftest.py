@@ -2237,6 +2237,10 @@ def check_xodus_chain_probe():
         bare = root / "xodus-chain-Cd34"
         bare.mkdir()
         (bare / "Game.exe").write_bytes(b"MZ decrypted")
+        # A real view links the game's own files back into it; this one
+        # carries a game data file but nothing OptiScaler-related.
+        (game / "data.pak").write_bytes(b"pak")
+        (bare / "data.pak").symlink_to(game / "data.pak")
         # A directory that is not a view at all.
         (root / "vanguard").mkdir()
 
@@ -2265,9 +2269,9 @@ def check_xodus_chain_probe():
         # status file wins wherever it lives, a command reaches every view,
         # and installing live control reaches a running view too.
         check("the live channel finds the views around a game",
-              sorted(v.name for v in launchers.chain_view_dirs(str(game))) ==
+              sorted(v.name for v, _ in launchers.launch_views_around(str(game))) ==
               [".xodus-chain-Ab12", "xodus-chain-Cd34"],
-              [v.name for v in launchers.chain_view_dirs(str(game))])
+              [v.name for v, _ in launchers.launch_views_around(str(game))])
         from optiscaler import live
         (linked / "decky_optiscaler_live.status").write_text("status ready")
         (game / "decky_optiscaler_live.status").write_text("status failed")
@@ -2289,6 +2293,37 @@ def check_xodus_chain_probe():
               install["ok"]
               and (linked / "OptiScaler/plugins/decky_optiscaler_live.asi").is_file(),
               install)
+
+        # A game whose executable folder sits deeper than its root: the view
+        # is created next to the root, not next to the folder the panel
+        # manages, and the folder to follow sits inside it at the target's
+        # own relative path.
+        deep_root = root / "DeepGame"
+        deep = deep_root / "Binaries" / "Win64"
+        deep.mkdir(parents=True)
+        (deep / "game.exe").write_bytes(b"MZ")
+        (deep / "dxgi.dll").write_bytes(b"MZ opti")
+        view2 = root / ".xodus-chain-Ef56"
+        (view2 / "Binaries" / "Win64").mkdir(parents=True)
+        (view2 / "Binaries" / "Win64" / "Game.exe").write_bytes(b"MZ decrypted")
+        (view2 / "Binaries" / "Win64" / "dxgi.dll").symlink_to(deep / "dxgi.dll")
+        insides = sorted(str(inside)
+                         for _view, inside in launchers.launch_views_around(str(deep)))
+        check("a view beside the game's root is found with the folder inside it",
+              str(view2 / "Binaries" / "Win64") in insides, insides)
+        check("another game's view is not mistaken for this one",
+              str(linked) not in insides, insides)
+        deep_report = launchers.probe_chain_views(str(deep))
+        check("the probe follows the game into the deeper folder of its view",
+              [v["name"] for v in deep_report["views"]] == [".xodus-chain-Ef56"]
+              and deep_report["views"][0]["markers"]["dxgi.dll"] == "link",
+              [v.get("inside") for v in deep_report["views"]])
+        deep_status_file = view2 / "Binaries" / "Win64" / "decky_optiscaler_live.status"
+        deep_status_file.write_text("status ready")
+        os.utime(deep_status_file, (2000000000, 2000000000))
+        deep_status = live.status(str(deep))
+        check("the live channel reads the status from inside a deeper view",
+              deep_status["state"] == "ready", deep_status["state"])
 
         # A folder with no views around it: the report is empty but honest.
         quiet_root = Path(tempfile.mkdtemp(prefix="optiscaler-xodus-none-"))

@@ -419,6 +419,7 @@ export interface OptipatcherStatus {
 export interface ChainViewEntry {
   name: string;
   path: string;
+  inside: string;
   files: string[];
   markers: Record<string, "link" | "file" | null>;
   targets: Record<string, string | null>;

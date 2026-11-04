@@ -132,6 +132,11 @@ function XodusProbeResult({ probe }: Readonly<{ probe: ChainViewProbe }>) {
             {found.length === 0
               ? "none of OptiScaler's files -- the game cannot load OptiScaler from this view"
               : carries}
+            {view.inside !== view.path ? (
+              <div style={{ marginTop: "2px" }}>
+                game folder inside the view: <Mono>{view.inside}</Mono>
+              </div>
+            ) : null}
           </div>
         );
       })}

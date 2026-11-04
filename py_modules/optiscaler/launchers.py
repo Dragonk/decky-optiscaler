@@ -283,7 +283,7 @@ def resolve_shortcut(exe, start_dir=None, options="", name=None):
 # Xodus launches encrypted games out of a temporary "chain view" it materializes
 # next to the install. The prefixes are the ones its runtime accepts in a launch
 # path; both spellings occur in the wild.
-CHAIN_VIEW_PREFIXES = (".xodus-chain-", "xodus-chain-")
+CHAIN_VIEW_PREFIXES = (".xodus-chain-", ".xodus-offline-", "xodus-chain-")
 
 # The files an OptiScaler install can put in a game folder, under any of the
 # proxy names the wiki allows. A view carrying none of these cannot load
@@ -311,81 +311,116 @@ def _marker_state(path):
 def probe_chain_views(game_dir):
     """Report the Xodus Nexus launch views that exist around a game folder.
 
-    Xodus's backend is closed, and the chain view it materializes per launch is
-    the directory the game's executable actually runs from -- so whether a
-    file this plugin installed after the fact was linked into it is what
-    decides whether OptiScaler can load at all in an encrypted game. Nothing
-    here can assume the answer: the views are read as found, while the game
-    runs, and each is reported with the OptiScaler files it carries, where
-    they link to, and a listing for the panel to show.
-
-    Views live in the root Xodus installs games into -- the game folder's
-    parent -- and are removed when the launch ends, so an empty report means
-    either "this game does not use one" or "the game is not running"; the
-    game folder itself is scanned too, because a view could in principle be
-    placed anywhere its runtime still accepts it.
+    The backend materializes a view next to the game's root folder, and the
+    panel's target may be the executable's folder several levels below it,
+    so every ancestor is asked and each view is reported with the folder
+    inside it that mirrors the target. Only views that mirror the folder
+    they sit beside are reported -- a neighbour game's view links
+    elsewhere -- and views are removed when the launch ends, so an empty
+    report means either "this game does not use one" or "the game is not
+    running"; what is reported is read as found, while the game runs.
     """
     game = Path(game_dir)
     scanned = []
+    node = game
+    for _level in range(5):
+        if not node.is_dir():
+            break
+        if node.parent.is_dir() and str(node.parent) not in scanned:
+            scanned.append(str(node.parent))
+        if node == node.parent:
+            break
+        node = node.parent
     views = []
-    for root in (game.parent, game):
-        if not root.is_dir():
-            continue
+    for view, inside in launch_views_around(game_dir):
+        entry = {
+            "name": view.name,
+            "path": str(view),
+            "inside": str(inside),
+            "files": [],
+            "markers": {},
+            "targets": {},
+        }
         try:
-            entries = sorted(root.iterdir(), key=lambda item: item.name)
+            names = sorted(child.name for child in inside.iterdir())
         except OSError:
-            continue
-        scanned.append(str(root))
-        for entry in entries:
-            if not entry.name.startswith(CHAIN_VIEW_PREFIXES):
-                continue
-            if not entry.is_dir():
-                continue
-            view = {
-                "name": entry.name,
-                "path": str(entry),
-                "files": [],
-                "markers": {},
-                "targets": {},
-            }
-            try:
-                names = sorted(child.name for child in entry.iterdir())
-            except OSError:
-                names = []
-            view["files"] = names[:40]
-            for marker in CHAIN_VIEW_MARKERS:
-                state = _marker_state(entry / marker)
-                view["markers"][marker] = state
-                if state == "link":
-                    try:
-                        view["targets"][marker] = str((entry / marker).readlink())
-                    except OSError:
-                        view["targets"][marker] = None
-            views.append(view)
+            names = []
+        entry["files"] = names[:40]
+        for marker in CHAIN_VIEW_MARKERS:
+            state = _marker_state(inside / marker)
+            entry["markers"][marker] = state
+            if state == "link":
+                try:
+                    entry["targets"][marker] = str((inside / marker).readlink())
+                except OSError:
+                    entry["targets"][marker] = None
+        views.append(entry)
     game_markers = {
         marker: _marker_state(game / marker) for marker in CHAIN_VIEW_MARKERS
     }
     return {"views": views, "game_markers": game_markers, "scanned": scanned}
 
 
-def chain_view_dirs(game_dir):
-    """The Xodus launch views existing around a game folder right now.
+def _view_mirrors(inside, node):
+    """Whether a launch view folder mirrors the game folder *node*.
 
-    A view exists only while its game is running, so this is asked fresh
-    every time: it is what lets the live channel follow an encrypted game
-    into the folder its executable actually starts from.
+    The backend symlinks the game's own files into the view, so a view
+    belongs to this game when something in it links back into the folder
+    it mirrors. Decrypted executables are real files and a neighbour
+    game's view links elsewhere, so this is what tells them apart.
     """
-    game = Path(game_dir)
-    found = []
-    for root in (game.parent, game):
-        if not root.is_dir():
-            continue
+    try:
+        resolved_node = node.resolve()
+        entries = list(inside.iterdir())
+    except OSError:
+        return False
+    for entry in entries:
         try:
-            entries = list(root.iterdir())
+            if entry.is_symlink():
+                target = entry.resolve()
+                if target == resolved_node or resolved_node in target.parents:
+                    return True
         except OSError:
             continue
-        for entry in entries:
-            if entry.name.startswith(CHAIN_VIEW_PREFIXES) and entry.is_dir():
-                found.append(entry)
+    return False
+
+
+def launch_views_around(target_dir, depth=4):
+    """The Xodus launch views a running game may have started from.
+
+    A view is created next to the folder the backend was told the game
+    lives in -- the game's root -- while the panel's target may be the
+    folder of the game's executable, several levels below it. So every
+    ancestor of the target is asked, up to *depth* levels up, and each
+    view is returned with the folder inside it that mirrors the target.
+    Only views mirroring the folder they sit beside are returned: a view
+    exists only while its game runs, so this is asked fresh every time.
+    """
+    target = Path(target_dir)
+    found = []
+    node = target
+    for _level in range(depth + 1):
+        if not node.is_dir():
+            break
+        parent = node.parent
+        if parent.is_dir():
+            try:
+                entries = sorted(parent.iterdir(), key=lambda item: item.name)
+            except OSError:
+                entries = []
+            for entry in entries:
+                if not entry.name.startswith(CHAIN_VIEW_PREFIXES):
+                    continue
+                if not entry.is_dir():
+                    continue
+                inside = entry / target.relative_to(node)
+                if not inside.is_dir():
+                    continue
+                if not _view_mirrors(inside, node):
+                    continue
+                found.append((entry, inside))
+        if node == node.parent:
+            break
+        node = parent
     return found
 

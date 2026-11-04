@@ -35,17 +35,21 @@ installing works offline and every game gets the same build.
   native Linux AppImage, not a Proton prefix, so its shortcuts name the game by id
   and the plugin reads the launcher's own `launcher-state.json` to find the exact
   folder. Encrypted games run differently: Xodus starts them out of a temporary
-  chain view it materializes next to the install and tears down when the game
-  exits, and its backend scrubs `WINEDLLOVERRIDES` inherited from
-  Steam's launch options — only the options configured inside Xodus reach the
-  game. So the live panel offers `Check Xodus launch views`: run it
-  while the game is up and it reads the view the executable actually started
-  from, reporting which of OptiScaler's files were linked into it and where
-  they point — the one honest answer the closed backend allows. Live control
-  follows the game in there too: while the game runs, its status and its log
-  are read from the view as well, commands are written to it, and installing
-  live control drops the module into it — an encrypted game is steered live
-  like any other, provided its view carries OptiScaler at all.
+  chain view it materializes next to the game's root folder, mirroring it by
+  symlinks, and tears it down when the game exits — so anything installed
+  into the game folder before launch, OptiScaler included, is visible to the
+  game, but nothing added while it runs is. Its backend also scrubs
+  `WINEDLLOVERRIDES` inherited from Steam's launch options — only the options
+  configured inside Xodus reach the game, and Xodus already forces the
+  native `dxgi.dll` its runtime loads from the view. The live panel offers
+  `Check Xodus launch views`: run it while the game is up and it reads the
+  view the executable actually started from — found next to the game's root,
+  which may sit several levels above the folder the panel manages — reporting
+  which of OptiScaler's files were linked into it and where they point. Live
+  control follows the game in there too: status, log and commands are read
+  from and written to the view's copy of the game folder, so an encrypted
+  game is steered live like any other. Install live control with the game
+  closed, then start it: a view only links what existed at launch.
 - **Sets the game up from the wiki, online or not.** Your game is matched against the OptiScaler
   [Compatibility List](https://github.com/optiscaler/OptiScaler/wiki/Compatibility-List), with a
   search box to pin the right entry. A copy of the list ships with the plugin and the last

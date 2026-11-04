@@ -3,6 +3,28 @@
 Newest first. Each release ships `Decky OptiScaler.zip` for Decky Loader's
 *Install from URL* (Developer mode), and bundles **OptiScaler 10.0.0-pre1** (nightly 2026-11-04).
 
+## [0.0.15] - 2026-11-04
+
+### Fixed
+
+- **Live control stayed "waiting for the game" in Xodus games whose
+  executable sits deeper than the game's root.** Xodus materializes its
+  launch view next to the game's root folder, so for a game installed at
+  `Game/Binaries/Win64` the view lands next to `Game`, and the in-game
+  module keeps its control files in the view's copy of `Binaries/Win64`.
+  The panel looked for views only next to the folder it manages, so it
+  never found the files of exactly those games. Views are now searched
+  around every ancestor of the target folder, each followed into the
+  folder inside it that mirrors the target, and a view is only taken when
+  the game's own files link back into the folder it mirrors — a
+  neighbour game's view can no longer be mistaken for this one's.
+  Offline-mode views (`.xodus-offline-*`) are recognized too.
+
+### Added
+
+- The Xodus probe lists the folder inside a view that mirrors the game's
+  executable folder, next to the files that view carries.
+
 ## [0.0.14] - 2026-11-04
 
 ### Fixed
