@@ -107,15 +107,31 @@ struct msvc_vector_raw {
     void* end;
 };
 
-// std::deque<T> on MSVC: the block map, how many blocks it holds, the offset of
-// the first element and the element count. Nothing here ever walks one -- the
-// two deques in State are only skipped over to reach the frame times declared
-// after them -- so the block layout does not matter, only the size.
+// std::deque<T> on MSVC: the block map, how many blocks it holds, and the two
+// iterators (first and last), each holding the map, its size, the element it
+// points at and the end of that block: eighty bytes. Nothing here ever walks
+// one -- the two deques in State are only skipped over to reach the frame
+// times declared after them -- so the block layout does not matter, only the
+// size. This was modelled at four words once, and the whole frame tail --
+// intervals, the present duration, everything after the deques -- sat
+// eighty-eight bytes away from where the running game keeps it, so the
+// plugin went searching and read a present call's duration as a frame
+// interval: a session running at 80 fps was reported at 2643.
 struct msvc_deque_raw {
     void* map;
     size_t mapsize;
-    size_t offset;
-    size_t size;
+    struct {
+        void* map;
+        size_t mapsize;
+        void* next;
+        void* last;
+    } first;
+    struct {
+        void* map;
+        size_t mapsize;
+        void* next;
+        void* last;
+    } last;
 };
 
 // std::mutex on MSVC x64 is a single pointer to the CRT's internal mutex

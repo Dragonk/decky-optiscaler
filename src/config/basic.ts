@@ -203,6 +203,12 @@ export const FG_PRESETS: Preset[] = [
     "fsrfg", "fsrfg"
   ),
   fgPreset(
+    "xessfg",
+    "XeSS FG (game's own)",
+    "FG Input “XeFG” into FG Output “FSR FG”. For games that already offer XeSS frame generation in their own settings — switch the game to DX12, turn its XeSS FG on, then pick this and restart.",
+    "xefg", "fsrfg"
+  ),
+  fgPreset(
     "xefg",
     "XeFG",
     "FG Input “FSR 3.1 FG” into FG Output “XeFG”. Supports 3X and 4X as well as 2X.",

@@ -2288,8 +2288,8 @@ def check_asi_state_layout():
          "where the Dx12 FSR version list sits"),
         ("offsetof(state_tail, ffxUpscalerVersionsVkNames) == 288",
          "where the Vulkan FSR version list sits"),
-        ("offsetof(state_tail, lastFGFrameTime) == 504", "where the frame intervals sit"),
-        ("sizeof(msvc_deque_raw) == 32", "the width of the deques the tail steps over"),
+        ("offsetof(state_tail, lastFGFrameTime) == 592", "where the frame intervals sit"),
+        ("sizeof(msvc_deque_raw) == 80", "the width of the deques the tail steps over"),
         ("sizeof(hudless_entry) == 24", "the stride the table's elements are checked at"),
     ) :
         check(f"live.cpp pins {why}", f"static_assert({text}," in source, text)

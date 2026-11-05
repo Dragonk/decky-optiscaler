@@ -3,6 +3,26 @@
 Newest first. Each release ships `Decky OptiScaler.zip` for Decky Loader's
 *Install from URL* (Developer mode), and bundles **OptiScaler 10.0.0-pre1** (nightly 2026-11-04).
 
+## [0.0.26] - 2026-11-04
+
+### Fixed
+
+- **The frame-interval pair is read where the game actually keeps it.** The
+  State mirror modelled MSVC's deque and the bools around it too wide, so the
+  declared pair sat 88 bytes away from the real one and the plugin went
+  hunting for a pair in whatever looked plausible nearby -- which is how a
+  present call's duration once passed for half the pair and a session
+  running at 80 fps was reported at 2643. The layout now matches the
+  shipped nightly, so both frame rates are read directly and the search is
+  the fallback it was meant to be.
+
+### Added
+
+- **"XeSS FG (game's own)" method** for games that ship XeSS frame
+  generation of their own (Medieval Dynasty in DX12, for one): the game's
+  own FG path feeds the generator, which sidesteps the depth and
+  motion-vector hunt the upscaler input depends on.
+
 ## [0.0.25] - 2026-11-04
 
 ### Fixed

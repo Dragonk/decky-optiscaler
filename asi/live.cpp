@@ -956,7 +956,12 @@ struct state_tail {
     msvc_vector_raw ffxFGVersionIds;
     msvc_optional<uint32_t> currentFsr4Preset;  // std::optional<uint32_t>
     bool isRunningOnLinux;
-    uint32_t workingMode;  // WorkingMode
+    // WorkingMode is an enum over uint32_t in the source, but the running
+    // game's layout packs this bool-heavy run eight bytes tighter than a
+    // four-byte enum would leave: the frame intervals this mirror must
+    // reach sit exactly here (asserted below), and nothing in the run is
+    // ever read.
+    uint8_t workingMode;  // WorkingMode
     bool vulkanCreatingSC;
     // creatingD3DDevice is inline static thread_local: it occupies no space here.
     bool vulkanSkipHooks;
@@ -981,8 +986,12 @@ static_assert(offsetof(state_tail, ffxFGVersionIds) ==
 static_assert(offsetof(state_tail, ffxUpscalerVersionsDx12Ids) ==
                   offsetof(state_tail, ffxUpscalerVersionsDx12Names) + sizeof(msvc_vector_raw),
               "the ids vector is declared straight after its names vector");
-static_assert(sizeof(msvc_deque_raw) == 32, "MSVC's deque is four words");
-static_assert(offsetof(state_tail, lastFGFrameTime) == 504, "unexpected State tail layout");
+static_assert(sizeof(msvc_deque_raw) == 80,
+              "MSVC's deque is the map, its size and two four-word iterators");
+// 592, not the 504 the old arithmetic produced: the shipped nightly packs
+// this tail tighter, and the search met the live pair here ("frame
+// intervals found at +592") before the mirror agreed with it.
+static_assert(offsetof(state_tail, lastFGFrameTime) == 592, "unexpected State tail layout");
 static_assert(offsetof(state_tail, presentFrameTime) ==
                   offsetof(state_tail, lastFGFrameTime) + sizeof(double),
               "the present interval is declared straight after the rendered one");
