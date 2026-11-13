@@ -46,6 +46,20 @@ template <class T, HasDefaultValue defaultState = WithDefault> class CustomOptio
         std::optional<T>::operator=(value);
     }
 
+    // Prevents the reset from being saved to ini
+    constexpr void reset_volatile()
+    {
+        if (!_volatile)
+        {
+            if (this->has_value())
+                _configIni = this->value();
+            else
+                _configIni = std::nullopt;
+        }
+        _volatile = true;
+        std::optional<T>::reset();
+    }
+
     // Use this when first setting a CustomOptional
     constexpr void set_from_config(const std::optional<T>& opt)
     {
@@ -294,6 +308,7 @@ class Config
     CustomOptional<bool> LogSingleFile { true };
     CustomOptional<bool> LogAsync { false };
     CustomOptional<int> LogAsyncThreads { 4 };
+    CustomOptional<bool> CreateDumps { false };
 
     // XeSS
     CustomOptional<bool> BuildPipelines { true };
@@ -351,7 +366,7 @@ class Config
     // RCAS
     CustomOptional<bool> RcasEnabled { false };
     CustomOptional<bool> ContrastEnabled { false };
-    CustomOptional<float> Contrast { -0.3f };
+    CustomOptional<float> Contrast { 0.0f };
 
     // DA Sharpening
     CustomOptional<float, NoDefault> DADepthScale;
@@ -441,9 +456,10 @@ class Config
     CustomOptional<bool> MenuBlur { true };
     CustomOptional<float> MenuBlurStrength { 1.0f };
     CustomOptional<bool> CustomTabEnabled { true };
-    CustomOptional<std::string> CustomTabCards { "upscaler,sharpness,fg_selection,fg_fsrfg,fg_xefg,fg_dlssg,fg_"
-                                                 "reprojection,fg_optifg,fg_nvngx,fg_fsrfg_inputs,fg_sl_"
-                                                 "inputs,framerate" }; // Comma separated ids of the boxes
+    CustomOptional<std::string> CustomTabCards {
+        "upscaler,sharpness,fg_selection,fg_fsrfg,fg_xefg,fg_dlssg,fg_flipmeter,"
+        "fg_reprojection,fg_optifg,fg_nvngx,fg_fsrfg_inputs,fg_sl_inputs,framerate"
+    }; // Comma separated ids of the boxes
 
     // Hooks
     CustomOptional<bool> HookOriginalNvngxOnly { false };
@@ -530,10 +546,17 @@ class Config
     // FSR
     CustomOptional<bool> FsrDebugView { false };
     CustomOptional<int> FfxUpscalerIndex { 0 };
-    // Folder name in custom used by FFX or DLSS, stored in Dx12Upscaler, empty for the regular upscalers
+    // Custom upscaler name (misc/CustomProviders.h) of each API, stored in the API's upscaler setting in place of
+    // the upscaler it runs as, empty for the regular upscalers
+    CustomOptional<std::string, NoDefault> CustomUpscalerDx11;
     CustomOptional<std::string, NoDefault> CustomUpscaler;
-    // Folder name in custom used by Vulkan FFX, stored in VulkanUpscaler, empty for the regular upscalers
     CustomOptional<std::string, NoDefault> CustomUpscalerVk;
+    // Folder in custom with a dlssd for the game's ray reconstruction, RRUpscaler in the ini, empty for auto
+    CustomOptional<std::string, NoDefault> CustomRRUpscaler;
+    // Regular upscaler running the game's ray reconstruction without denoising, RRUpscaler in the ini, empty for DLSSD
+    CustomOptional<Upscaler, NoDefault> RRRegularUpscaler;
+    // Regular upscalers can be picked for ray reconstruction, which is then offered to the game without a DLSSD
+    CustomOptional<bool> RRAllowRegularUpscalers { false };
 
     // UpscalerIndex of [FSR] for the regular FFX upscaler, of [<name>] for a custom one
     CustomOptional<int>& FfxUpscalerIndexFor(const std::string& custom)
@@ -645,6 +668,7 @@ class Config
     CustomOptional<bool> FGMakeDepthCopy { true };
     CustomOptional<bool> FGResourceFlip { false };
     CustomOptional<bool> FGResourceFlipOffset { false };
+    CustomOptional<bool> FGHudlessFlip { false };
     CustomOptional<bool, SoftDefault> FGAlwaysCaptureFSRFGSwapchain { false };
 
     CustomOptional<int, NoDefault> FGRectLeft;
@@ -699,6 +723,8 @@ class Config
     CustomOptional<bool> FSRFGSkipConfigForHudless { false };
     CustomOptional<bool> FSRFGSkipDispatchForHudless { false };
     CustomOptional<bool> FSRFGEnableWatermark { false };
+    // Custom FFX FG name (misc/CustomProviders.h) used by FSR FG, empty for the regular one
+    CustomOptional<std::string, NoDefault> FSRFGProvider;
 
     // XeFG
     CustomOptional<bool> FGXeFGIgnoreInitChecks { false };
@@ -726,6 +752,8 @@ class Config
     CustomOptional<bool> FGDLSSGForceDMFG { false };           // Overrides Opti's DLSSG mode to Dynamic
     CustomOptional<float> FGDLSSGFramerateTargetDMFG { 0.0f }; // 0.0 means auto-detects the display refresh rate
 
+    // Flip Meter
+    CustomOptional<int> FGFlipMeterInterpolationCount { 1 };
     // Reprojection
     CustomOptional<ReprojectionFill> ReprojectionFillMode { ReprojectionFill::Dithering };
     CustomOptional<float> ReprojectionDepthCutoff { 0.1f };
@@ -778,6 +806,7 @@ class Config
     CustomOptional<bool, SoftDefault> OverrideVsync { false };
     CustomOptional<bool, NoDefault> ForceVsync;
     CustomOptional<UINT> VsyncInterval { 0 };
+    CustomOptional<int, NoDefault> VulkanPresentMode; // VkPresentModeKHR
 
     // Old configs for compat reasons
     CustomOptional<bool, NoDefault> _DONTUSE_Fsr4ForceEnableInt8;

@@ -244,6 +244,14 @@ def parse_ini_map(source_text):
         key = f"{match.group('section')}.{match.group('key')}"
         mapping.setdefault(key, {"member": None, "read": "Enum" if how.startswith("Enum") else how})
 
+    # The 20261113 nightly reads the upscaler trio through a lambda whose
+    # section is literal and whose key is the parameter, so READ_ANY_RE cannot
+    # see the pairing; the calls name the keys outright. Register them the way
+    # their reads would have, and Save()'s helper attaches the members.
+    for match in re.finditer(r'readUpscaler\(\s*"([^"]+)"', text):
+        mapping.setdefault(f"Upscalers.{match.group(1)}",
+                           {"member": None, "read": "String"})
+
     # Save(): the authoritative key -> member pairing.
     for match in SAVE_RE.finditer(text):
         key = f"{match.group('section')}.{match.group('key')}"

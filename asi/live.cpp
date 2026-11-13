@@ -625,41 +625,57 @@ static const char* BackendValueToCode(uint32_t value) {
 
 /**
  * Whether the run of members one table past a candidate really is State's, from
- * newBackend (the Upscaler enum) on through the four defaults declared beside
- * it.
+ * newBackend (the Upscaler enum) on through the defaults declared beside it.
  *
  * This is the check that separates changeBackend from the other unordered_dense
- * map State holds (capturedHudlesses), which is identical as a table and
- * differs only in what follows it. There is no string to look for any more:
- * State::newBackend is an enum in v10, so what is checked is that the four
- * bytes there hold a plausible Upscaler (Reset, or one of the twelve real
- * backends) and that the members after it are the compile-time defaults --
- * xessDebugFrames is 5, lastMipBias is 100.0f and lastMipBiasMax is -100.0f.
- * Those three values together are what nothing else in State has.
+ * tables State holds (capturedHudlesses, and since the 20261113 nightly the
+ * rrHandles set), which are identical as tables and differ only in what follows
+ * them. There is no string to look for any more: State::newBackend is an enum
+ * in v10, so what is checked is that the four bytes there hold a plausible
+ * Upscaler (Reset, or one of the twelve real backends) and that the members
+ * after it are the compile-time defaults -- xessDebugFrames is 5, lastMipBias
+ * is 100.0f and lastMipBiasMax is -100.0f. Those three values together are
+ * what nothing else in State has.
  *
  * It has to be an exact match on all of them: the enum alone is 13 values in a
  * four-byte slot and would pass almost anywhere, and only the run makes the
- * candidate unique.
+ * candidate unique. The ray-reconstruction set the nightly declares between
+ * the enum and the debug pair is validated as a table too -- in
+ * LooksLikeChangeBackend, where the shared invariants live -- which is what
+ * stops the set's own 64 bytes from posing as the map: a candidate anchored
+ * there reads the zeroed DLSS preset slots as its "defaults", and lastMipBias
+ * and its pair as its "set".
  */
 struct state_new_backend {
     uint32_t newBackend;
+    // rrHandles, the ray-reconstruction handle set the 20261113 nightly adds,
+    // and the bool that requests it. The set is empty until the game asks for
+    // ray reconstruction; unordered_dense's map and set share one table type,
+    // so the ud_table stand-in covers it.
+    ud_table rrHandles;
+    bool rrRequested;
     bool xessDebug;
     int32_t xessDebugFrames;
     float lastMipBias;
     float lastMipBiasMax;
 };
 
-static_assert(offsetof(state_new_backend, xessDebugFrames) == 8,
-              "the frame count follows the enum, after the bool's padding");
-static_assert(offsetof(state_new_backend, lastMipBias) == 12, "the bias follows the count");
-static_assert(offsetof(state_new_backend, lastMipBiasMax) == 16, "and its pair follows it");
+static_assert(offsetof(state_new_backend, rrHandles) == 8,
+              "the ray-reconstruction set follows the enum, after alignment");
+static_assert(offsetof(state_new_backend, rrRequested) == sizeof(ud_table) + 8,
+              "the request bool follows the set");
+static_assert(offsetof(state_new_backend, xessDebugFrames) == 76,
+              "the frame count follows the set, the two bools and the padding");
+static_assert(offsetof(state_new_backend, lastMipBias) == 80, "the bias follows the count");
+static_assert(offsetof(state_new_backend, lastMipBiasMax) == 84, "and its pair follows it");
 
 static bool LooksLikeNewBackendRun(const void* p) {
     const state_new_backend* run = (const state_new_backend*) p;
     if (!Readable(run, sizeof(*run))) return false;
     if (run->newBackend > kUpscalerReset) return false;
     // xessDebug is a bool, so it needs no range check; it is here for the
-    // layout, because it is what puts xessDebugFrames at +8.
+    // layout: after the set and the two bools, the frame count lands where
+    // the asserts say it does.
     if (run->xessDebugFrames != 5) return false;
     if (run->lastMipBias != 100.0f) return false;
     if (run->lastMipBiasMax != -100.0f) return false;
@@ -682,7 +698,8 @@ static bool EntriesLookLikePairs(const msvc_vector_raw* values, size_t count) {
 /**
  * Everything that is true of an unordered_dense table whatever it holds.
  *
- * State has three of them and this plugin now needs two, so the invariants live
+ * State has held three of them since the 20261113 nightly -- two maps and the
+ * ray-reconstruction set -- so the invariants live
  * here once: the load factor and shift count at their exact offsets, the bucket
  * vector agreeing with both, and a value vector whose length is a whole number
  * of elements of the caller's stride. What tells one table from another is
@@ -727,19 +744,29 @@ static bool LooksLikeChangeBackend(const ud_table* t) {
     if (!TableInvariantsHold(t, sizeof(backend_entry), 256, &count)) return false;
     if (count && !EntriesLookLikePairs(&t->m_values, count)) return false;
 
-    return LooksLikeNewBackendRun(t + 1);
+    const state_new_backend* run = (const state_new_backend*) (t + 1);
+    if (!LooksLikeNewBackendRun(run)) return false;
+
+    // The ray-reconstruction set behind the enum: an unordered_dense table
+    // whatever it holds, so the same invariants apply with the set's value
+    // stride. It is empty until the game asks for ray reconstruction, and an
+    // empty set claims no buckets and no capacity.
+    size_t rrCount = 0;
+    return TableInvariantsHold(&run->rrHandles, sizeof(unsigned int), 4096, &rrCount);
 }
 
 /**
  * Locate State::changeBackend, and with it State::newBackend.
  *
- * State holds two unordered_dense maps -- capturedHudlesses and changeBackend,
- * in that declaration order -- and they are indistinguishable as tables. What
- * tells them apart is what follows: only changeBackend is followed by the
- * Upscaler enum and the run of defaults beside it. That, plus keeping the last
- * candidate to break a tie in declaration order, is enough; every check fails
- * closed, so a State this does not recognise leaves upscaler switching reported
- * as unavailable rather than writing blind.
+ * State holds three unordered_dense tables -- capturedHudlesses, changeBackend
+ * and, since the 20261113 nightly, the rrHandles set, in that declaration
+ * order -- and they are indistinguishable as tables. What tells them apart is
+ * what follows: only changeBackend is followed by the Upscaler enum and the
+ * run of defaults beside it, and the set declared inside that run is validated
+ * as a table too, so a candidate anchored on the set itself does not pass.
+ * That, plus keeping the last candidate to break a tie in declaration order, is
+ * enough; every check fails closed, so a State this does not recognise leaves
+ * upscaler switching reported as unavailable rather than writing blind.
  */
 static bool FindChangeBackend(const StateLoc* state, BackendMap* out) {
     unsigned char* p = state->base;
@@ -765,16 +792,18 @@ static bool FindChangeBackend(const StateLoc* state, BackendMap* out) {
  * The members declared immediately before State::changeBackend.
  *
  * v10 slipped `vkAntiLagSupported` in between the counter and the map, and the
- * 20261104 nightly added the AMD flip-metering pair behind it. They fit into
- * the padding that bool left, so the counter is still 16 bytes in front of the
- * map -- mirroring the run is how that stays honest rather than being a number
- * that has to be remembered.
+ * 20261104 nightly added the AMD flip-metering pair behind it. The 20261113
+ * nightly added the flip-meter output's `amdFlipMeterSupported` optional
+ * behind the pair, and that one is real size, not padding: the counter is 24
+ * bytes in front of the map now. Mirroring the run is how that stays honest
+ * rather than being a number that has to be remembered.
  */
 struct state_pre {
     uint64_t frameCount;
     bool vkAntiLagSupported;
     bool amdFlipMeterCreated;
     uint32_t amdFlipMeterMode;
+    msvc_optional<bool> amdFlipMeterSupported;  // std::optional<bool>
     ud_table changeBackend;
 };
 
@@ -783,7 +812,8 @@ struct state_pre {
     ((ptrdiff_t) offsetof(state_pre, frameCount) -  \
      (ptrdiff_t) offsetof(state_pre, changeBackend))
 
-static_assert(FRAME_COUNT_OFF == -16, "frameCount is 16 bytes in front of the map in v10");
+static_assert(FRAME_COUNT_OFF == -24,
+              "frameCount is 24 bytes in front of the map since the 20261113 nightly");
 
 /**
  * State::frameCount, which is sampled between heartbeats to report frame rate
@@ -821,11 +851,12 @@ static uint64_t* FindFrameCount(const BackendMap* map) {
 // value, so they are located the way everything else here is: relative to an
 // object that can be identified. State::capturedHudlesses is another
 // unordered_dense table; the compiler works out that it is declared 22 bytes
-// past FGchanged, and it is one of only two such tables in State -- the other
-// being changeBackend, which is already located and which is declared after
-// capturedHudlesses, so it bounds the search. What confirms a candidate is what
-// follows it -- a bool, the NVNGX application id, a wstring and a string, each
-// at an exact offset. If two candidates pass, or any check fails, the flags
+// past FGchanged. The tables State holds before changeBackend are only this
+// one -- the rrHandles set the 20261113 nightly adds is declared after it,
+// past the bound -- so changeBackend, which is already located, still bounds
+// the search. What confirms a candidate is what follows it -- a mutex, a bool,
+// the NVNGX application id, a wstring and a string, each at an exact offset.
+// If two candidates pass, or any check fails, the flags
 // stay unlocated and the FFX FG switch reports itself unavailable rather than
 // writing a byte into State on the strength of a guess.
 
@@ -867,26 +898,28 @@ static_assert(FG_BLOCK_OFF(fgChanged) == -22, "fgChanged is 22 bytes in front of
 static_assert(FG_BLOCK_OFF(scChanged) == -21, "scChanged is declared straight after fgChanged");
 
 /**
- * The four members declared straight after capturedHudlesses, which are what
- * tell that table from the other map State holds.
+ * The members declared straight after capturedHudlesses, which are what tell
+ * that table from the other tables State holds.
  *
  * Kept apart from the run below on purpose: this one is only ever read at
  * offsets *forward* from the table, to confirm it, and it stops where the
  * NVNGX init parameters begin. Those parameters change often and are of no
  * interest to this plugin, so nothing after them is mirrored until the map
- * that is found by scanning.
+ * that is found by scanning. The 20261113 nightly pairs the map with a
+ * std::mutex; it is mirrored so the bool and the id behind it stay honest.
  */
 struct hudless_block {
     ud_table capturedHudlesses;
+    msvc_mutex_raw capturedHudlessesMutex;  // std::mutex
     bool clearCapturedHudlesses;
     uint64_t NVNGX_ApplicationId;
     msvc_wstring NVNGX_ApplicationDataPath;
     msvc_string NVNGX_ProjectId;
 };
 
-static_assert(offsetof(hudless_block, clearCapturedHudlesses) == sizeof(ud_table),
-              "the bool follows the table");
-static_assert(offsetof(hudless_block, NVNGX_ApplicationId) == sizeof(ud_table) + 8,
+static_assert(offsetof(hudless_block, clearCapturedHudlesses) == sizeof(ud_table) + sizeof(msvc_mutex_raw),
+              "the bool follows the table and its mutex");
+static_assert(offsetof(hudless_block, NVNGX_ApplicationId) == sizeof(ud_table) + sizeof(msvc_mutex_raw) + 8,
               "the application id follows the bool, after alignment");
 
 /** Where a member of that run sits relative to the table. */
@@ -909,16 +942,24 @@ static_assert(offsetof(hudless_block, NVNGX_ApplicationId) == sizeof(ud_table) +
  * The run reaches three things this plugin uses: the two FFX upscaler version
  * lists (Dx12 and Vulkan are separate lists in v10), the FFX frame generator
  * list, and the pair of frame-interval measurements that separate the rendered
- * frame rate from the presented one.
+ * frame rate from the presented one. The 20261113 nightly inserts two runs into
+ * this stretch -- the ray-reconstruction pair behind the enum, and the Vulkan
+ * present-mode trio behind the XeFG war flag -- and both are mirrored, so the
+ * intervals stay reachable and the asserts below stay earned.
  */
 struct state_tail {
     ud_table changeBackend;
     uint32_t newBackend;  // Upscaler, a four-byte enum; Reset (not 0) means "use Config"
+    ud_table rrHandles;  // the ray-reconstruction handle set; empty until the game asks for it
+    bool rrRequested;
     bool xessDebug;
     int32_t xessDebugFrames;
     float lastMipBias;
     float lastMipBiasMax;
     bool WAR_xefgRequestFGToggle;
+    uint32_t vkPresentModeMask;
+    int32_t vkGamePresentMode;  // VkPresentModeKHR, the mode the game chose
+    bool vkPresentModeChanged;
     float xefgDynamicCapFps;
     bool dlssgGameDMFGSupported;
     uint32_t dlssgLastSetMode;  // sl::DLSSGMode, a one-byte enum in a uint32_t slot
@@ -976,10 +1017,12 @@ struct state_tail {
 
 static_assert(offsetof(state_tail, newBackend) == sizeof(ud_table),
               "the enum this plugin already validates must still follow the map");
-static_assert(offsetof(state_tail, ffxUpscalerVersionsDx12Names) == 240,
+static_assert(offsetof(state_tail, rrHandles) == sizeof(ud_table) + 8,
+              "the ray-reconstruction set follows the enum, after alignment");
+static_assert(offsetof(state_tail, ffxUpscalerVersionsDx12Names) == 320,
               "unexpected State layout between changeBackend and the FFX lists");
-static_assert(offsetof(state_tail, ffxUpscalerVersionsVkNames) == 288, "unexpected State layout");
-static_assert(offsetof(state_tail, ffxFGVersionNames) == 336, "unexpected State tail layout");
+static_assert(offsetof(state_tail, ffxUpscalerVersionsVkNames) == 368, "unexpected State layout");
+static_assert(offsetof(state_tail, ffxFGVersionNames) == 416, "unexpected State tail layout");
 static_assert(offsetof(state_tail, ffxFGVersionIds) ==
                   offsetof(state_tail, ffxFGVersionNames) + sizeof(msvc_vector_raw),
               "the ids vector is declared straight after the names vector");
@@ -988,10 +1031,12 @@ static_assert(offsetof(state_tail, ffxUpscalerVersionsDx12Ids) ==
               "the ids vector is declared straight after its names vector");
 static_assert(sizeof(msvc_deque_raw) == 80,
               "MSVC's deque is the map, its size and two four-word iterators");
-// 592, not the 504 the old arithmetic produced: the shipped nightly packs
-// this tail tighter, and the search met the live pair here ("frame
-// intervals found at +592") before the mirror agreed with it.
-static_assert(offsetof(state_tail, lastFGFrameTime) == 592, "unexpected State tail layout");
+// 672: 592 before the 20261113 nightly -- and that was already not the 504
+// the old arithmetic produced, because the shipped build packs this tail
+// tighter and the search met the live pair ("frame intervals found at +592")
+// before the mirror agreed with it. The nightly's ray-reconstruction pair and
+// Vulkan present-mode trio take 80 more bytes between the enum and the lists.
+static_assert(offsetof(state_tail, lastFGFrameTime) == 672, "unexpected State tail layout");
 static_assert(offsetof(state_tail, presentFrameTime) ==
                   offsetof(state_tail, lastFGFrameTime) + sizeof(double),
               "the present interval is declared straight after the rendered one");
@@ -1066,8 +1111,10 @@ static bool LooksLikeCapturedHudlesses(const ud_table* t) {
  *
  * Nothing in State before changeBackend is needed as a starting anchor, and v10
  * removed the one 0.9.4 had: the map that used to sit at a computed offset from
- * State's first member -- DeviceAdapterNames -- is gone. State's two remaining
- * maps are this one and changeBackend itself.
+ * State's first member -- DeviceAdapterNames -- is gone. The tables State
+ * holds on this side of the search are only this one and changeBackend itself;
+ * the rrHandles set the 20261113 nightly adds is declared after changeBackend,
+ * inside the bound the search stops at.
  */
 static bool FindFgFlags(const StateLoc* state, const BackendMap* map, FgFlags* out) {
     if (!state->base || !map->table) return false;

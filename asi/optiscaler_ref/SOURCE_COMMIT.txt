@@ -1,8 +1,8 @@
-5eb4bfabf3c93cdb7e96b37065441f5c8000ccc7
+5f69a25d60cdd4f99d48ea54893972b227ddf583
 
-Tag:      v10.0.0-pre1 (the shipped nightly 20261104 runtime is built from this lineage)
-Date:     2026-11-03
-Source:   https://github.com/optiscaler/OptiScaler/tree/5eb4bfabf3c93cdb7e96b37065441f5c8000ccc7/OptiScaler
+Tag:      v10.0.0-pre1 (the shipped nightly 20261113 runtime is built from this lineage)
+Date:     2026-11-13
+Source:   https://github.com/optiscaler/OptiScaler/tree/5f69a25d60cdd4f99d48ea54893972b227ddf583/OptiScaler
 
 The nightly tree moves files against the v10.0.0-pre1 tag: the vendored
 reference files live at OptiScaler/hooks/FG_Hooks.cpp,
@@ -57,3 +57,10 @@ straight after it all come from this header's member declaration order. Guessing
 them instead is what silently disabled upscaler switching once already, so
 asi/live.cpp mirrors the layout and check_asi_backend_layout() in
 scripts/selftest.py holds the two together.
+
+The 20261113 nightly adds an unordered_dense set to State (rrHandles, the
+ray-reconstruction handle set, plus the bool that requests it) and pairs
+capturedHudlesses with a std::mutex. detail::table doubles as map and set in
+4.5.0, so the 64-byte ud_table stand-in in asi/live.cpp covers both tables;
+the bucket layout is shared, only the value stride differs (4 for the set,
+8 for the pair).

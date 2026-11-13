@@ -1,7 +1,28 @@
 # Changelog
 
 Newest first. Each release ships `Decky OptiScaler.zip` for Decky Loader's
-*Install from URL* (Developer mode), and bundles **OptiScaler 10.0.0-pre1** (nightly 2026-11-04).
+*Install from URL* (Developer mode), and bundles **OptiScaler 10.0.0-pre1** (nightly 2026-11-13).
+
+## [0.0.27] - 2026-11-13
+
+### Changed
+
+- **Bundled OptiScaler updated to the 2026-11-13 nightly** (still
+  10.0.0-pre1, built from 5f69a25d): FidelityFX SDK stays at 4.1.2, so the
+  bundled FSR files are unchanged. Upstream adds custom upscaler providers
+  for DX11 (`CustomUpscalerDx11`), DLSS-D ray-reconstruction support
+  (`CustomRRUpscaler`, with the handle set OptiScaler now keeps in State),
+  an AMD driver flip meter (RDNA 4 only), Vulkan present-mode tracking,
+  FSR-FG provider selection (`FSRFG.Provider`), and XeFG/DLSSG/Vulkan FG
+  crash fixes.
+- **The live-control State mirror follows the nightly's new layout.** The
+  flip-meter support optional moved the frame counter 8 bytes further in
+  front of the backend map, capturedHudlesses is now paired with a mutex,
+  and the ray-reconstruction set plus the Vulkan present-mode run sit
+  between the upscaler enum and the FFX version lists, moving the
+  frame-interval pair 80 bytes deeper. Every offset is compiler-asserted
+  and the table disambiguation covers the new set, so live control keeps
+  working -- run **Reinstall live control** once after this update.
 
 ## [0.0.26] - 2026-11-04
 

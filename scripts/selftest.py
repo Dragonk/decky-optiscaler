@@ -374,7 +374,8 @@ async def run():
         config = await service.read_config(str(target))
         # ``values`` is {section: {key: value}}, so this is the section count:
         # a parse that dropped a section would silently hide every key in it.
-        check("ini parsed", config["ok"] and len(config["values"]) == 37,
+        # 38 sections in the 20261113 nightly's default ini, 37 before it.
+        check("ini parsed", config["ok"] and len(config["values"]) == 38,
               len(config["values"]))
         before = (target / "OptiScaler.ini").read_text(encoding="utf-8")
 
@@ -2127,9 +2128,11 @@ def check_asi_backend_layout():
         r"(?://[^\n]*\n\s*)*"
         r"uint32_t amdFlipMeterMode = 0;\s*"
         r"(?://[^\n]*\n\s*)*"
+        r"std::optional<bool> amdFlipMeterSupported[^;]*;[^\n]*\n\s*"
+        r"(?://[^\n]*\n\s*)*"
         r"ankerl::unordered_dense::map<unsigned int, bool> changeBackend;",
         state_h)
-    check("frameCount, vkAntiLagSupported, the flip-metering pair and changeBackend are still declared together",
+    check("frameCount, vkAntiLagSupported, the flip-metering trio and changeBackend are still declared together",
           pre is not None)
     tail = re.search(
         r"ankerl::unordered_dense::map<unsigned int, bool> changeBackend;\s*"
@@ -2157,8 +2160,10 @@ def check_asi_backend_layout():
     # rather than something guessed at afterwards.
     check("the load factor is checked at its exact offset, not scanned for",
           "t->m_max_load_factor != kMaxLoadFactor" in source)
-    check("newBackend is what tells changeBackend from State's other maps",
-          "return LooksLikeNewBackendRun(t + 1);" in source)
+    check("newBackend is what tells changeBackend from State's other tables",
+          "if (!LooksLikeNewBackendRun(run)) return false;" in source
+          and "TableInvariantsHold(&run->rrHandles, sizeof(unsigned int), 4096, &rrCount)"
+          in source)
     check("locating the map and the enum is one indivisible step",
           "g_newBackend = found.newBackend;" in source)
 
@@ -2179,6 +2184,10 @@ def _state_members():
         if not raw.startswith("    ") or raw.startswith("     "):
             continue
         line = raw.strip()
+        # Upstream commentary rides on some declaration lines -- the 20261113
+        # nightly annotates the flip-meter optional and the captured-hudless
+        # mutex that way; the declaration is what is mirrored, not the note.
+        line = line.split("//", 1)[0].rstrip()
         if not line.endswith(";") or "(" in line:
             continue
         if line.startswith(("//", "static", "inline", "using", "typedef", "return", "friend")):
@@ -2267,6 +2276,12 @@ def check_asi_state_layout():
         ("std::deque<double> frameTimes;", "the second"),
         ("double lastFGFrameTime = 0.0;", "the frame-generation hook's interval"),
         ("double presentFrameTime = 0.0;", "the wrapped swapchain's interval"),
+        ("std::optional<bool> amdFlipMeterSupported",
+         "the flip-meter flag that widened the run in front of the map"),
+        ("std::mutex capturedHudlessesMutex;",
+         "the mutex the 20261113 nightly pairs the captured-hudless table with"),
+        ("ankerl::unordered_dense::set<unsigned int> rrHandles;",
+         "the ray-reconstruction handle set the enum's run mirrors"),
     ):
         check(f"State still declares {why}", text in state_h, text)
 
@@ -2276,19 +2291,21 @@ def check_asi_state_layout():
 
     # Compiled assertions; their presence is what matters, the build enforces them.
     for text, why in (
-        ("FRAME_COUNT_OFF == -16", "how far in front of the map the counter sits"),
+        ("FRAME_COUNT_OFF == -24", "how far in front of the map the counter sits"),
         ("FG_BLOCK_OFF(fgChanged) == -22", "how far in front of the table the flag sits"),
         ("FG_BLOCK_OFF(scChanged) == -21", "the flag beside it"),
-        ("offsetof(hudless_block, clearCapturedHudlesses) == sizeof(ud_table)",
-         "the bool that confirms the table"),
-        ("offsetof(hudless_block, NVNGX_ApplicationId) == sizeof(ud_table) + 8",
+        ("offsetof(hudless_block, clearCapturedHudlesses) == sizeof(ud_table) + sizeof(msvc_mutex_raw)",
+         "the bool that confirms the table, past its mutex"),
+        ("offsetof(hudless_block, NVNGX_ApplicationId) == sizeof(ud_table) + sizeof(msvc_mutex_raw) + 8",
          "the value that confirms the table"),
-        ("offsetof(state_tail, ffxFGVersionNames) == 336", "where the FFX FG list sits"),
-        ("offsetof(state_tail, ffxUpscalerVersionsDx12Names) == 240",
+        ("offsetof(state_new_backend, xessDebugFrames) == 76",
+         "where the debug defaults sit past the ray-reconstruction set"),
+        ("offsetof(state_tail, ffxFGVersionNames) == 416", "where the FFX FG list sits"),
+        ("offsetof(state_tail, ffxUpscalerVersionsDx12Names) == 320",
          "where the Dx12 FSR version list sits"),
-        ("offsetof(state_tail, ffxUpscalerVersionsVkNames) == 288",
+        ("offsetof(state_tail, ffxUpscalerVersionsVkNames) == 368",
          "where the Vulkan FSR version list sits"),
-        ("offsetof(state_tail, lastFGFrameTime) == 592", "where the frame intervals sit"),
+        ("offsetof(state_tail, lastFGFrameTime) == 672", "where the frame intervals sit"),
         ("sizeof(msvc_deque_raw) == 80", "the width of the deques the tail steps over"),
         ("sizeof(hudless_entry) == 24", "the stride the table's elements are checked at"),
     ) :
@@ -2313,26 +2330,46 @@ def check_asi_state_layout():
     # The FFX Upscaler combo is the overlay's version of the same action: the
     # index into Config -- the 20261104 nightly reaches it through a reference,
     # auto& upscalerIndex = config->FfxUpscalerIndexFor(customName) -- then a
-    # rebuild of the current backend. This plugin
-    # leaves newBackend at Upscaler::Reset instead of naming the current
-    # backend, because ChangeFeature reads Reset as "use whatever Config holds
-    # for this API" -- which is the same rebuild by a route that cannot pick the
-    # wrong graphics API.
+    # rebuild of the current backend. The 20261113 nightly normalizes the id
+    # it writes through SameBackend(). This plugin leaves newBackend at
+    # Upscaler::Reset instead of naming the current backend, because
+    # ChangeFeature reads Reset as "use whatever Config holds for this API" --
+    # which is the same rebuild by a route that cannot pick the wrong graphics
+    # API.
     check("the overlay's FFX Upscaler combo is still config, then a rebuild",
           re.search(r'ImGui::BeginCombo\("FFX Upscaler".*?'
                     r'upscalerIndex = n;\s*'
-                    r'state\.newBackend = currentBackend;\s*'
+                    r'state\.newBackend = SameBackend\(currentBackend\);\s*'
                     r'MARK_ALL_BACKENDS_CHANGED\(\);', menu, re.S) is not None)
     # What lets this plugin leave newBackend alone: every provider reads the
     # resting Upscaler::Reset as "use Config", and sets it back to Reset after a
-    # rebuild, so Reset is also the normal resting state.
-    for provider in ("Dx12", "Dx11", "Vk"):
+    # rebuild, so Reset is also the normal resting state. The 20261113 nightly
+    # made Dx12 and Vk ray-reconstruction-aware: `backend` is a
+    # reference to state.newBackend unless the handle is an RR one, so Reset
+    # still means "use Config" and still lands back in newBackend through it.
+    for provider, use_config, reset_back in (
+        ("Dx12",
+         ("Upscaler& backend = rayReconstruction ? rrBackend : state.newBackend;",
+          "if (backend == Upscaler::Reset || dlssOnNonCapable)",
+          "backend = cfg.Dx12Upscaler.value_or_default();"),
+         ("init successful for {0}, upscaler changed",
+          "backend = Upscaler::Reset;")),
+        ("Dx11",
+         ("state.newBackend == Upscaler::Reset",),
+         ("state.newBackend = Upscaler::Reset;",)),
+        ("Vk",
+         ("Upscaler& backend = rayReconstruction ? rrBackend : state.newBackend;",
+          "if (backend == Upscaler::Reset || dlssOnNonCapable)",
+          "backend = cfg.VulkanUpscaler.value_or_default();"),
+         ("init successful for {0}, upscaler changed",
+          "backend = Upscaler::Reset;")),
+    ):
         text = (ROOT / "asi" / "optiscaler_ref" / f"FeatureProvider_{provider}.cpp") \
             .read_text(encoding="utf-8")
         check(f"a Reset newBackend still means \u201cuse Config\u201d on {provider}",
-              "state.newBackend == Upscaler::Reset" in text)
+              all(pattern in text for pattern in use_config))
         check(f"and {provider} still resets it once the rebuild succeeded",
-              "state.newBackend = Upscaler::Reset;" in text)
+              all(pattern in text for pattern in reset_back))
 
     config_cpp = (ROOT / "asi" / "optiscaler_ref" / "Config.cpp").read_text(encoding="utf-8")
     check("FfxFGIndex is still the ini's [FSR] FGIndex",
@@ -2351,7 +2388,7 @@ def check_asi_state_layout():
     check("presentFrameTime is still timed in the wrapped swapchain",
           "State::Instance().presentFrameTime = ftDelta;" in swapchain)
     check("and the frame counter still ticks beside it",
-          "State::Instance().frameCount = _frameCounter;" in swapchain)
+          "State::Instance().frameCount++;" in swapchain)
     fg_hooks = (ROOT / "asi" / "optiscaler_ref" / "FG_Hooks.cpp").read_text(encoding="utf-8")
     check("lastFGFrameTime is still timed in the frame-generation hook",
           "state.lastFGFrameTime = ftDelta;" in fg_hooks
