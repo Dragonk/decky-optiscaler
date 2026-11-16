@@ -6,7 +6,7 @@ import { ManagerPage } from "./components/ManagerPage";
 import { QuickPanel } from "./components/QuickPanel";
 import { ROUTE, openManager } from "./navigation";
 import { useRunningGame } from "./hooks/useRunningGame";
-import { setLang, useLang } from "./i18n";
+import { pickLang, setLang, useLang } from "./i18n";
 import { getSteamLanguage } from "./api";
 
 function Content() {
@@ -26,11 +26,12 @@ export default definePlugin(() => {
   routerHook.addRoute(ROUTE, ManagerPage, { exact: true });
   const unpatchContextMenu = patchLibraryContextMenu();
 
-  // The UI language follows the Steam client own language (registry.vdf,
-  // newest localconfig.vdf as fallback), read once at plugin load. English for
-  // everything else.
+  // The UI language follows the Steam client. The webview locale is the
+  // live signal on SteamOS (it tracks the client language); the backend's
+  // registry.vdf/localconfig.vdf lookup backs it up where it stays English.
+  setLang(pickLang(navigator.language, undefined));
   getSteamLanguage()
-    .then((result) => setLang(result.language === "polish" ? "pl" : "en"))
+    .then((result) => setLang(pickLang(navigator.language, result.language)))
     .catch(() => undefined);
 
   return {

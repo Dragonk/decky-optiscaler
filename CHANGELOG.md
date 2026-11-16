@@ -3,6 +3,18 @@
 Newest first. Each release ships `Decky OptiScaler.zip` for Decky Loader's
 *Install from URL* (Developer mode), and bundles **OptiScaler 10.0.0-pre1** (nightly 2026-11-16).
 
+## [0.0.29] - 2026-11-16
+
+### Fixed
+
+- **Polish now shows up whatever registry.vdf says.** The webview locale
+  (which tracks the Steam client language on SteamOS) picks the UI
+  language first, and the registry.vdf/localconfig.vdf lookup backs it
+  up: the exact HKCU path stays, and a walk for the Valve/Steam language
+  node - wherever the client nested it - handles Steam node layouts the
+  exact path does not know. The two signals agree everywhere they meet,
+  and anything that is not Polish from either stays English.
+
 ## [0.0.28] - 2026-11-16
 
 ### Added

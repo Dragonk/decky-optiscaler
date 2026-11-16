@@ -625,6 +625,26 @@ def find_by_appid(home, appid, exe=None, start_dir=None, name=None):
         }
     return find_shortcut_by_appid(home, appid)
 
+def _client_language(node, ancestors):
+    """The "language" string written on a Steam node, wherever the client
+    nested Valve/Steam in this file. The exact HKCU path stays the first
+    try; this walk is the fallback for client versions that nest the
+    Steam node differently (a direct key on any node whose trail runs
+    through Valve and Steam)."""
+    if not isinstance(node, dict):
+        return None
+    if "valve" in ancestors and "steam" in ancestors:
+        value = node.get("language")
+        if isinstance(value, str) and value:
+            return value
+    for key, child in node.items():
+        if isinstance(child, dict):
+            found = _client_language(child, ancestors | {key})
+            if found:
+                return found
+    return None
+
+
 def steam_language(home):
     """The UI language the Steam client runs in, spelled as Steam spells it."""
     # registry.vdf carries the setting for the machine; each account most
@@ -642,6 +662,8 @@ def steam_language(home):
         node = data.get("registry", data)
         lang = (node.get("hkcu", {}).get("software", {})
                     .get("valve", {}).get("steam", {}).get("language"))
+        if not (isinstance(lang, str) and lang):
+            lang = _client_language(node, set())
         if isinstance(lang, str) and lang:
             return lang
     for config in _local_configs(home):
@@ -652,6 +674,8 @@ def steam_language(home):
         data = parse_vdf(text)
         lang = (data.get("userlocalconfigstore", {}).get("software", {})
                     .get("valve", {}).get("steam", {}).get("language"))
+        if not (isinstance(lang, str) and lang):
+            lang = _client_language(data, set())
         if isinstance(lang, str) and lang:
             return lang
     return "english"

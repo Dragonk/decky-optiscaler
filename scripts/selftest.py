@@ -3343,6 +3343,32 @@ def check_ui_language():
     (bare / ".local/share/Steam/steamapps").mkdir(parents=True)
     check("and a Steam that never chose is english",
           steam_mod.steam_language(bare) == "english")
+    # The Steam node is not under HKCU in every client version; the walk
+    # has to find the language wherever Valve nested it.
+    bare_steam = bare / ".local/share/Steam"
+    (bare_steam / "registry.vdf").write_text(
+        chr(10).join([
+            chr(34) + "registry" + chr(34),
+            "{",
+            "  " + chr(34) + "HKLM" + chr(34),
+            "  {",
+            "    " + chr(34) + "Software" + chr(34),
+            "    {",
+            "      " + chr(34) + "Valve" + chr(34),
+            "      {",
+            "        " + chr(34) + "Steam" + chr(34),
+            "        {",
+            "          " + chr(34) + "language" + chr(34) + "  " + chr(34) + "polish" + chr(34),
+            "        }",
+            "      }",
+            "    }",
+            "  }",
+            "}",
+            "",
+        ]),
+        encoding="utf-8")
+    check("and a Steam node outside HKCU still names its language",
+          steam_mod.steam_language(bare) == "polish")
 
     # Frontend: every t() key is translated or deliberately English.
     skip = {
@@ -3373,6 +3399,9 @@ def check_ui_language():
         if re.search(r'(?<![A-Za-z_.])t\(\s*"', path.read_text(encoding="utf-8")):
             test_leak = True
     check("tests stay out of the dictionary", not test_leak)
+    ui_entry = (ROOT / "src/index.tsx").read_text(encoding="utf-8")
+    check("the webview locale picks the language too",
+          "pickLang(navigator.language" in ui_entry)
 
 def main():
     logging.basicConfig(level=logging.ERROR)

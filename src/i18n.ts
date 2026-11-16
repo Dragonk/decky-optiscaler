@@ -65,6 +65,21 @@ export function plural(n: number, one: string, few: string, many: string): strin
   return many;
 }
 
+/**
+ * Resolve the UI language from the two signals a Deck offers: the webview
+ * locale (which follows the Steam client on SteamOS) and the language the
+ * backend read from Steam's own files. Polish from either signal wins;
+ * everything else is English, since those are the two dictionaries.
+ */
+export function pickLang(
+  navigatorLanguage: string | undefined,
+  steamLanguage: string | undefined,
+): Lang {
+  if ((navigatorLanguage ?? "").toLowerCase().startsWith("pl")) return "pl";
+  if ((steamLanguage ?? "").toLowerCase() === "polish") return "pl";
+  return "en";
+}
+
 const PL: Record<string, string> = {
   "Auto — OptiScaler uses {0}.": "Auto — OptiScaler używa {0}.",
   "Live control connected. {0}": "Sterowanie na żywo połączone. {0}",
