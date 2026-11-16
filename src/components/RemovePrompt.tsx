@@ -3,6 +3,7 @@ import { useState } from "react";
 import { launchChoices, resolveChoice } from "../launchOptions";
 import type { LaunchAction, LaunchState } from "../launchOptions";
 import { Mono, Notice } from "./Common";
+import { lang, plural, t } from "../i18n";
 
 /**
  * The question removing OptiScaler has always had and never asked.
@@ -48,36 +49,43 @@ export function RemovePrompt({
 
   return (
     <ConfirmModal
-      strTitle="Remove OptiScaler?"
-      strOKButtonText="Remove"
-      strCancelButtonText="Keep it"
+      strTitle={t("Remove OptiScaler?")}
+      strOKButtonText={t("Remove")}
+      strCancelButtonText={t("Keep it")}
       closeModal={closeModal}
       onOK={() => onConfirm(action, remember)}
     >
       <div style={{ fontSize: "14px", lineHeight: 1.5 }}>
         {backedUp > 0
-          ? `The ${backedUp} file${backedUp === 1 ? "" : "s"} it set aside in ${gameName} are put
-             back, and its settings are removed.`
-          : `Its files and settings are removed from ${gameName}'s folder.`}
+          ? t("The {0} {1} it set aside in {2} are put back, and its settings are removed.", [
+              backedUp,
+              lang() === "pl"
+                ? plural(backedUp, "plik, który odłożył", "pliki, które odłożył", "plików, które odłożył")
+                : backedUp === 1
+                  ? "file"
+                  : "files",
+              gameName,
+            ])
+          : t("Its files and settings are removed from {0}'s folder.", [gameName])}
         {filename ? (
           <>
             {" "}
-            <Mono>{filename}</Mono> goes with them.
+            <Mono>{filename}</Mono>{t(" goes with them.")}
           </>
         ) : null}
       </div>
 
       {asked && remembered ? (
-        <Notice tone="info" title="Steam launch options">
-          {chosen?.label}. This is the answer you asked to be remembered — change it under
-          Settings on the main page.
+        <Notice tone="info" title={t("Steam launch options")}>
+          {chosen?.label}{t(". This is the answer you asked to be remembered — change it under ")}
+          {t("Settings on the main page.")}
         </Notice>
       ) : null}
 
       {asked && !remembered ? (
         <>
           <DropdownItem
-            label="Steam launch options"
+            label={t("Steam launch options")}
             description={chosen?.description}
             rgOptions={choices.map((choice) => ({ data: choice.action, label: choice.label }))}
             selectedOption={action}
@@ -86,8 +94,8 @@ export function RemovePrompt({
           />
           {canRemember ? (
             <ToggleField
-              label="Remember my choice"
-              description="Later removals do this without asking."
+              label={t("Remember my choice")}
+              description={t("Later removals do this without asking.")}
               checked={remember}
               bottomSeparator="none"
               onChange={setRemember}
@@ -98,7 +106,7 @@ export function RemovePrompt({
 
       {!asked ? (
         <div style={{ fontSize: "13px", opacity: 0.7, marginTop: "6px" }}>
-          Steam has no launch options for this game to put back.
+          {t("Steam has no launch options for this game to put back.")}
         </div>
       ) : null}
     </ConfirmModal>

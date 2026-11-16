@@ -47,6 +47,7 @@ import type {
 } from "../types";
 import { Mono, Notice, Pill } from "./Common";
 import { RemovePrompt } from "./RemovePrompt";
+import { lang, plural, t } from "../i18n";
 
 /**
  * Setting a game up, as a checklist rather than a page of panels.
@@ -134,19 +135,19 @@ function shorten(path: string, keep = 3) {
  * nobody anywhere.
  */
 function liveReason(live: LiveStatus | null) {
-  if (!live) return "Live control has not reported in yet.";
+  if (!live) return t("Live control has not reported in yet.");
   if (!live.asi_installed) {
-    return "The in-game plugin is not installed for this game. Add it under “Manual setup”.";
+    return t("The in-game plugin is not installed for this game. Add it under “Manual setup”.");
   }
   if (live.load_enabled === false) {
-    return "OptiScaler is not set to load .asi plugins, so the in-game plugin never ran.";
+    return t("OptiScaler is not set to load .asi plugins, so the in-game plugin never ran.");
   }
   if (live.loaded_by_optiscaler === false) {
-    return "OptiScaler did not load the in-game plugin.";
+    return t("OptiScaler did not load the in-game plugin.");
   }
-  return `OptiScaler loaded the in-game plugin, but it could not attach${
-    live.error ? `: ${live.error}` : "."
-  }`;
+  return t("OptiScaler loaded the in-game plugin, but it could not attach{0}", [
+      live.error ? `: ${live.error}` : "."
+    ]);
 }
 
 /**
@@ -173,30 +174,30 @@ function WikiTrouble({
   const unreachable = recommendation !== null && !recommendation.list_available;
   if (!unreachable) {
     return (
-      <Notice tone="warn" title="No wiki entry matched this game">
-        OptiScaler still works with most DLSS, FSR 2+ and XeSS games. Set it up by hand —
-        <Mono>dxgi.dll</Mono> is the usual choice — or find this game in the wiki list
-        yourself.
+      <Notice tone="warn" title={t("No wiki entry matched this game")}>
+        {t("OptiScaler still works with most DLSS, FSR 2+ and XeSS games. Set it up by hand —")}
+        <Mono>dxgi.dll</Mono>{t(" is the usual choice — or find this game in the wiki list")}
+        {t(" yourself.")}
       </Notice>
     );
   }
   return (
     <>
-      <Notice tone="error" title="The compatibility list could not be downloaded">
-        This is not the same as your game being missing from it — nothing could be checked at
-        all. {recommendation?.list_meta?.error ? <Mono>{recommendation.list_meta.error}</Mono>
-          : "The wiki could not be reached."}{" "}
-        Check the Deck's network connection, then try again. Setting the game up by hand works
-        either way.
+      <Notice tone="error" title={t("The compatibility list could not be downloaded")}>
+        {t("This is not the same as your game being missing from it — nothing could be checked at")}
+        {t(" all.")} {recommendation?.list_meta?.error ? <Mono>{recommendation.list_meta.error}</Mono>
+          : t("The wiki could not be reached.")}{" "}
+        {t("Check the Deck's network connection, then try again. Setting the game up by hand works")}{t(" ")}
+        {t("either way.")}
       </Notice>
       <Focusable style={{ display: "flex", marginTop: "6px" }}>
         <DialogButton
           disabled={busy}
           onClick={onRetry}
-          onOKActionDescription="Download the compatibility list again"
+          onOKActionDescription={t("Download the compatibility list again")}
           style={{ flexGrow: 1 }}
         >
-          {busy ? "Trying…" : "Try again"}
+          {busy ? t("Trying…") : t("Try again")}
         </DialogButton>
       </Focusable>
     </>
@@ -208,7 +209,7 @@ function settingsSummary(plan: AutoPlan) {
   const pairs = plan.settings.map((item) => `${item.key}=${item.value}`);
   const fg =
     plan.framegen && plan.framegen.input !== "nofg"
-      ? `frame generation through ${plan.framegen.input_label} → ${plan.framegen.output_label}`
+      ? t("frame generation through {0} → {1}", [plan.framegen.input_label, plan.framegen.output_label])
       : null;
   return [pairs.join(", "), fg].filter(Boolean).join(", plus ");
 }
@@ -224,14 +225,14 @@ function settingsSummary(plan: AutoPlan) {
 function reframeworkSummary(ref: PlannedReframework) {
   const build =
     ref.variant === "pd-upscaler"
-      ? "the pd-upscaler build for this game"
-      : "praydog's nightly build";
-  if (ref.automatic) return `Downloads ${build} and puts ${ref.dll} next to the executable.`;
+      ? t("the pd-upscaler build for this game")
+      : t("praydog's nightly build");
+  if (ref.automatic) return t("Downloads {0} and puts {1} next to the executable.", [build, ref.dll]);
   // The reason is a clause written to sit mid-sentence — "no build is known for
   // this game", "this plugin no longer downloads it for you" — and this is
   // where it starts one.
-  const why = ref.reason ?? "it cannot be downloaded from here";
-  return `${why.charAt(0).toUpperCase()}${why.slice(1)} — get ${build} from ${ref.page}, and put ${ref.dll} next to the executable yourself.`;
+  const why = ref.reason ?? t("it cannot be downloaded from here");
+  return t("{0} — get {1} from {2}, and put {3} next to the executable yourself.", [why.charAt(0).toUpperCase() + why.slice(1), build, ref.page, ref.dll]);
 }
 
 /**
@@ -256,16 +257,16 @@ function PluginStep({
       {!present ? (
         <PanelSectionRow>
           {/* Loud, not a quiet pill. Without this file OptiScaler loads, the
-              live panel connects, the frame rate reads out — and the game
+              {t("live panel connects, the frame rate reads out — and the game")}
               upscales nothing, which is exactly how this was reported: "it
-              shows as live and connected but doesn't seem to be doing
+              {t("shows as live and connected but doesn't seem to be doing")}
               anything". A row nobody reads is how that happened. */}
-          <Notice tone="warn" title="This game will not upscale yet">
-            <Mono>{wanted.plugin}</Mono> has to be next to the executable before OptiScaler
-            can do anything in this game, and it is on Nexus Mods behind a login, so nothing
-            here can fetch it. Get {wanted.plugin_name} from <Mono>{wanted.plugin_url}</Mono>{" "}
-            and put <Mono>{wanted.plugin}</Mono> in the game folder. Until then the panel will
-            connect and report normally while nothing on screen changes.
+          <Notice tone="warn" title={t("This game will not upscale yet")}>
+            <Mono>{wanted.plugin}</Mono>{t(" has to be next to the executable before OptiScaler")}{t(" ")}
+            {t("can do anything in this game, and it is on Nexus Mods behind a login, so nothing")}
+            {t(" here can fetch it. Get")} {wanted.plugin_name} {t("from")} <Mono>{wanted.plugin_url}</Mono>{" "}
+            {t("and put")} <Mono>{wanted.plugin}</Mono>{t(" in the game folder. Until then the panel will")}{t(" ")}
+            {t("connect and report normally while nothing on screen changes.")}
           </Notice>
         </PanelSectionRow>
       ) : null}
@@ -275,28 +276,30 @@ function PluginStep({
           <StepLabel done={present}>
             {present ? (
               <>
-                <Mono>{wanted.plugin}</Mono> is there
+                <Mono>{wanted.plugin}</Mono>{t(" is there")}
               </>
             ) : (
               <>
-                Add <Mono>{wanted.plugin}</Mono> yourself
+                {t("Add")} <Mono>{wanted.plugin}</Mono>{t(" yourself")}
               </>
             )}
           </StepLabel>
         }
         description={
           present
-            ? `From ${wanted.plugin_name}. Nothing else to do for this step.`
-            : `This game also needs ${wanted.plugin_name}, which is on Nexus Mods behind a
-               login — nothing here can download it. Put ${wanted.plugin} next to the
-               executable: ${wanted.plugin_url}`
+            ? t("From {0}. Nothing else to do for this step.", [wanted.plugin_name])
+            : t("This game also needs {0}, which is on Nexus Mods behind a login — nothing here can download it. Put {1} next to the executable: {2}", [
+                wanted.plugin_name,
+                wanted.plugin,
+                wanted.plugin_url,
+              ])
         }
         bottomSeparator="standard"
         childrenLayout="inline"
         childrenContainerWidth="min"
         focusable
       >
-        {present ? <Pill color="#2f6b3f">done</Pill> : <Pill color="#5a4a20">you</Pill>}
+        {present ? <Pill color="#2f6b3f">{t("done")}</Pill> : <Pill color="#5a4a20">{t("you")}</Pill>}
       </Field>
     </PanelSectionRow>
     </>
@@ -316,11 +319,11 @@ function HotkeyNote({ plan }: Readonly<{ plan: AutoPlan }>) {
   if (!hotkey) return null;
   return (
     <PanelSectionRow>
-      <Notice tone="info" title="The overlay opens on a different key">
-        This entry asks for OptiScaler's overlay to move to{" "}
+      <Notice tone="info" title={t("The overlay opens on a different key")}>
+        {t("This entry asks for OptiScaler's overlay to move to")}{" "}
         <Mono>{hotkey.name ?? hotkey.value}</Mono>
-        {plan.reframework ? ", because REFramework's overlay uses Insert too" : ""}. Press{" "}
-        <Mono>{hotkey.name ?? hotkey.value}</Mono> in game, not Insert.
+        {plan.reframework ? t(", because REFramework's overlay uses Insert too") : ""}{t(". Press")}{" "}
+        <Mono>{hotkey.name ?? hotkey.value}</Mono>{t(" in game, not Insert.")}
       </Notice>
     </PanelSectionRow>
   );
@@ -445,8 +448,8 @@ export function SetupChecklist({
     );
     if (written === null) {
       toaster.toast({
-        title: "Launch options not changed",
-        body: "Steam will not say what this shortcut passes its game, so the field is left alone.",
+        title: t("Launch options not changed"),
+        body: t("Steam will not say what this shortcut passes its game, so the field is left alone."),
       });
       return;
     }
@@ -458,13 +461,13 @@ export function SetupChecklist({
       setLaunchReadable(true);
       void refreshLaunch();
       toaster.toast({
-        title: written ? "Launch options set" : "Launch options cleared",
+        title: written ? t("Launch options set") : t("Launch options cleared"),
         body: written || detail.name,
       });
     } else {
       toaster.toast({
-        title: "Could not reach Steam",
-        body: "Set the launch options manually.",
+        title: t("Could not reach Steam"),
+        body: t("Set the launch options manually."),
       });
     }
   };
@@ -478,13 +481,13 @@ export function SetupChecklist({
       if (withSettings) {
         const result = await autoInstall(detail.target, detail.path, detail.name, [folder]);
         if (!result.ok) {
-          toaster.toast({ title: "Setup failed", body: String(result.error) });
+          toaster.toast({ title: t("Setup failed"), body: String(result.error) });
           return;
         }
       } else {
         const result = await install(detail.target, planned.filename, false, planned.optipatcher);
         if (!result.ok) {
-          toaster.toast({ title: "Install failed", body: String(result.error) });
+          toaster.toast({ title: t("Install failed"), body: String(result.error) });
           return;
         }
         // REFramework is not one of the wiki's *settings*, so switching those
@@ -497,7 +500,7 @@ export function SetupChecklist({
           const added = await installReframework(detail.target, detail.path, detail.name, [folder]);
           if (!added.ok) {
             toaster.toast({
-              title: "OptiScaler installed, REFramework did not",
+              title: t("OptiScaler installed, REFramework did not"),
               body: String(added.error),
             });
           }
@@ -511,8 +514,8 @@ export function SetupChecklist({
         await applyLaunchOptions(planned.launch_options);
       }
       toaster.toast({
-        title: `${detail.name} is set up`,
-        body: `Installed as ${planned.filename}.`,
+        title: t("{0} is set up", [detail.name]),
+        body: t("Installed as {0}.", [planned.filename]),
       });
       await onChanged();
       await onReloadPlan();
@@ -537,10 +540,10 @@ export function SetupChecklist({
       const folder = detail.path.split("/").filter(Boolean).pop() ?? detail.name;
       const result = await installReframework(detail.target, detail.path, detail.name, [folder]);
       if (result.ok) {
-        toaster.toast({ title: "REFramework installed", body: detail.name });
+        toaster.toast({ title: t("REFramework installed"), body: detail.name });
         await onChanged();
       } else {
-        toaster.toast({ title: "Could not install REFramework", body: String(result.error) });
+        toaster.toast({ title: t("Could not install REFramework"), body: String(result.error) });
       }
     } finally {
       setBusy(false);
@@ -562,12 +565,12 @@ export function SetupChecklist({
       const result = await removeReframework(detail.install.path);
       if (result.ok) {
         toaster.toast({
-          title: "REFramework removed",
-          body: "OptiScaler is still installed. Launch the game to see which one it was.",
+          title: t("REFramework removed"),
+          body: t("OptiScaler is still installed. Launch the game to see which one it was."),
         });
         await onChanged();
       } else {
-        toaster.toast({ title: "Could not remove REFramework", body: String(result.error) });
+        toaster.toast({ title: t("Could not remove REFramework"), body: String(result.error) });
       }
     } finally {
       setBusy(false);
@@ -581,13 +584,13 @@ export function SetupChecklist({
       const result = await refreshWiki();
       await onReloadPlan();
       toaster.toast({
-        title: result.count > 0 ? "Compatibility list downloaded" : "Still could not download it",
+        title: result.count > 0 ? t("Compatibility list downloaded") : t("Still could not download it"),
         body: result.count > 0
-          ? `${result.count} entries.`
-          : String(result.meta?.error ?? "The wiki could not be reached."),
+                  ? `${result.count} ${lang() === "pl" ? plural(result.count, "wpis", "wpisy", "wpisów") : result.count === 1 ? "entry" : "entries"}`
+          : String(result.meta?.error ?? t("The wiki could not be reached.")),
       });
     } catch (exc) {
-      toaster.toast({ title: "Still could not download it", body: String(exc) });
+      toaster.toast({ title: t("Still could not download it"), body: String(exc) });
     } finally {
       setBusy(false);
     }
@@ -600,11 +603,11 @@ export function SetupChecklist({
       const folder = detail.path.split("/").filter(Boolean).pop() ?? detail.name;
       const result = await autoInstall(detail.target, detail.path, detail.name, [folder]);
       if (result.ok) {
-        toaster.toast({ title: "Set up again from the wiki", body: planned.game ?? detail.name });
+        toaster.toast({ title: t("Set up again from the wiki"), body: planned.game ?? detail.name });
         await onChanged();
         await onReloadPlan();
       } else {
-        toaster.toast({ title: "Could not re-apply", body: String(result.error) });
+        toaster.toast({ title: t("Could not re-apply"), body: String(result.error) });
       }
     } finally {
       setBusy(false);
@@ -630,17 +633,17 @@ export function SetupChecklist({
       if (rememberIt) await remember(PREF_REMOVE_LAUNCH, action);
       const result = await uninstall(detail.install.path, true);
       if (result.ok) {
-        toaster.toast({ title: "OptiScaler removed", body: detail.name });
+        toaster.toast({ title: t("OptiScaler removed"), body: detail.name });
         const chosen = launchChoices(launchState).find((choice) => choice.action === action);
         if (appid && chosen && chosen.value !== null) {
           const wrote = setLaunchOptions(Number(appid), chosen.value);
           toaster.toast({
             title: wrote
               ? chosen.value === ""
-                ? "Launch options cleared"
-                : "Launch options restored"
-              : "Could not reach Steam",
-            body: wrote ? chosen.value || detail.name : "Change the launch options manually.",
+                ? t("Launch options cleared")
+                : t("Launch options restored")
+              : t("Could not reach Steam"),
+            body: wrote ? chosen.value || detail.name : t("Change the launch options manually."),
           });
           if (wrote) {
             setLaunchNow(chosen.value);
@@ -650,7 +653,7 @@ export function SetupChecklist({
         await onChanged();
         await refreshLaunch();
       } else {
-        toaster.toast({ title: "Uninstall failed", body: String(result.error) });
+        toaster.toast({ title: t("Uninstall failed"), body: String(result.error) });
       }
     } finally {
       setBusy(false);
@@ -692,9 +695,9 @@ export function SetupChecklist({
       const result = await resetConfig(detail.install.path);
       if (result.ok) {
         await onResetConfig();
-        toaster.toast({ title: "Config reset", body: "Stock OptiScaler.ini restored." });
+        toaster.toast({ title: t("Config reset"), body: t("Stock OptiScaler.ini restored.") });
       } else {
-        toaster.toast({ title: "Reset failed", body: String(result.error) });
+        toaster.toast({ title: t("Reset failed"), body: String(result.error) });
       }
     } finally {
       setBusy(false);
@@ -704,26 +707,30 @@ export function SetupChecklist({
   // -- what the log row has to say -----------------------------------------
   const problems = report?.problems?.length ?? 0;
   const logSummary = !report?.log_present
-    ? "No log yet. Turn logging on here and launch the game once."
+    ? t("No log yet. Turn logging on here and launch the game once.")
     : problems > 0
-      ? `${problems} warning${problems === 1 ? "" : "s"} or error${
-          problems === 1 ? "" : "s"
-        } in the log.`
-      : "Nothing wrong in the log.";
+      ? `${problems} ${
+          lang() === "pl"
+            ? plural(problems, "ostrzeżenie lub błąd", "ostrzeżenia lub błędy", "ostrzeżeń lub błędów")
+            : problems === 1
+              ? "warning or error"
+              : "warnings or errors"
+        } ${lang() === "pl" ? "w logu." : "in the log."}`
+      : t("Nothing wrong in the log.");
   const logPill = !report?.log_present ? (
-    <Pill>no log yet</Pill>
+    <Pill>{t("no log yet")}</Pill>
   ) : problems > 0 ? (
     <Pill color="#5a4a20">{problems}</Pill>
   ) : (
-    <Pill color="#2f6b3f">no problems</Pill>
+    <Pill color="#2f6b3f">{t("no problems")}</Pill>
   );
 
   const foldRows = (
     <PanelSection>
       <PanelSectionRow>
         <Field
-          label="Manual setup"
-          description="File name, folder, OptiPatcher, FSR 4 files, launch options."
+          label={t("Manual setup")}
+          description={t("File name, folder, OptiPatcher, FSR 4 files, launch options.")}
           onClick={onManual}
           onActivate={onManual}
           focusable
@@ -736,13 +743,13 @@ export function SetupChecklist({
       </PanelSectionRow>
       <PanelSectionRow>
         <Field
-          label="Logs"
+          label={t("Logs")}
           // What the log says once there is one: that sentence used to be on
           // the "Not running" row, which was never a step of setting a game up.
           description={
             installed
               ? logSummary
-              : "What OptiScaler loaded, the GPU it found, and any errors."
+              : t("What OptiScaler loaded, the GPU it found, and any errors.")
           }
           onClick={onLogs}
           onActivate={onLogs}
@@ -751,7 +758,7 @@ export function SetupChecklist({
           childrenLayout="inline"
           childrenContainerWidth="min"
         >
-          {installed ? logPill : <Pill>no log yet</Pill>}
+          {installed ? logPill : <Pill>{t("no log yet")}</Pill>}
         </Field>
       </PanelSectionRow>
     </PanelSection>
@@ -772,39 +779,39 @@ export function SetupChecklist({
     let step = 0;
     const next = () => (step += 1);
     const runLabel = busy
-      ? "Setting up…"
+      ? t("Setting up…")
       : settling
-        ? "Reading this game's entry…"
+        ? t("Reading this game's entry…")
         : steps >= 4
-          ? `Do all ${steps === 4 ? "four" : steps}`
+          ? t("Do all {0}", [steps === 4 ? t("four") : steps])
           : steps === 3
-            ? "Do all three"
+            ? t("Do all three")
             : steps === 2
-              ? "Do both"
-              : "Just install it";
+              ? t("Do both")
+              : t("Just install it");
 
     return (
       <>
         <PanelSection title={detail.name}>
           <PanelSectionRow>
             {loadingWiki ? (
-              <Notice tone="info">Checking the OptiScaler wiki…</Notice>
+              <Notice tone="info">{t("Checking the OptiScaler wiki…")}</Notice>
             ) : planned ? (
-              <Notice tone="success" title="This game can be set up automatically">
-                Matched “{planned.game}” on the OptiScaler wiki
+              <Notice tone="success" title={t("This game can be set up automatically")}>
+                {t("Matched “{0}” on the OptiScaler wiki", [planned.game])}
                 {recommendation?.compatibility
-                  ? ` — reported ${recommendation.compatibility}`
+                  ? t(" — reported {0}", [recommendation.compatibility])
                   : ""}
                 .
                 {/* The list row answers on its own; this game's own wiki page
-                    is being fetched behind it and fills the rest in. Said out
+                    {t("is being fetched behind it and fills the rest in. Said out")}
                     loud because the steps below can change when it lands —
-                    but only while it is actually still being fetched. A page
-                    the wiki will not serve stays pending for ever, and saying
+                    {t("but only while it is actually still being fetched. A page")}{t(" ")}
+                    {t("the wiki will not serve stays pending for ever, and saying")}
                     "still reading" about it for ever is a lie the user cannot
                     act on. */}
                 {settling
-                  ? " Still reading this game's own entry — the steps below may fill in shortly."
+                  ? t(" Still reading this game's own entry — the steps below may fill in shortly.")
                   : ""}
               </Notice>
             ) : (
@@ -820,10 +827,10 @@ export function SetupChecklist({
               <Focusable style={{ display: "flex" }}>
                 <DialogButton
                   onClick={onManual}
-                  onOKActionDescription="Set this game up by hand"
+                  onOKActionDescription={t("Set this game up by hand")}
                   style={{ flexGrow: 1 }}
                 >
-                  Manual setup
+                  {t("Manual setup")}
                 </DialogButton>
               </Focusable>
             </PanelSectionRow>
@@ -837,15 +844,13 @@ export function SetupChecklist({
                 <Field
                   label={
                     <StepLabel n={ref.automatic ? next() : undefined} done={refPresent}>
-                      {refPresent ? "REFramework is already here" : "Install REFramework"}
+                      {refPresent ? t("REFramework is already here") : t("Install REFramework")}
                     </StepLabel>
                   }
                   description={
                     refPresent
-                      ? `${detail.reframework?.dll ?? ref.dll} is next to the executable already.
-                         The build this entry asks for goes in over it, and yours is set aside.`
-                      : `OptiScaler cannot hook this game without it — the wiki says so under
-                         “${ref.source}”. ${reframeworkSummary(ref)}`
+                      ? t("{0} is next to the executable already. The build this entry asks for goes in over it, and yours is set aside.", [detail.reframework?.dll ?? ref.dll])
+                      : t("OptiScaler cannot hook this game without it — the wiki says so under “{0}”. {1}", [ref.source, reframeworkSummary(ref)])
                   }
                   bottomSeparator="standard"
                   childrenLayout="inline"
@@ -853,9 +858,9 @@ export function SetupChecklist({
                   focusable
                 >
                   {ref.automatic ? (
-                    <span style={{ fontSize: "11px", opacity: 0.5 }}>required</span>
+                    <span style={{ fontSize: "11px", opacity: 0.5 }}>{t("required")}</span>
                   ) : (
-                    <Pill color="#5a4a20">you</Pill>
+                    <Pill color="#5a4a20">{t("you")}</Pill>
                   )}
                 </Field>
               </PanelSectionRow>
@@ -865,25 +870,24 @@ export function SetupChecklist({
 
             <PanelSectionRow>
               <Field
-                label={<StepLabel n={next()}>Install OptiScaler as <Mono>{planned.filename}</Mono></StepLabel>}
-                description={`Into ${shorten(detail.target)}, next to the executable that renders the game.`}
+                label={<StepLabel n={next()}>{t("Install OptiScaler as")}< Mono>{planned.filename}</Mono></StepLabel>}
+                description={t("Into {0}, next to the executable that renders the game.", [shorten(detail.target)])}
                 bottomSeparator="standard"
                 childrenLayout="inline"
                 childrenContainerWidth="min"
               >
-                <span style={{ fontSize: "11px", opacity: 0.5 }}>required</span>
+                <span style={{ fontSize: "11px", opacity: 0.5 }}>{t("required")}</span>
               </Field>
             </PanelSectionRow>
 
             {needsOverride && appid ? (
               <PanelSectionRow>
                 <ToggleField
-                  label={<StepLabel n={next()}>Set the Steam launch options</StepLabel>}
+                  label={<StepLabel n={next()}>{t("Set the Steam launch options")}</StepLabel>}
                   description={
                     ref
-                      ? `${planned.launch_options} — without it Proton loads its own
-                         ${planned.filename} and its own ${ref.dll}, and neither mod runs.`
-                      : `${planned.launch_options} — without it Proton loads its own ${planned.filename}.`
+                      ? t("{0} — without it Proton loads its own {1} and its own {2}, and neither mod runs.", [planned.launch_options, planned.filename, ref.dll])
+                      : t("{0} — without it Proton loads its own {1}.", [planned.launch_options, planned.filename])
                   }
                   checked={withLaunch}
                   disabled={busy}
@@ -895,9 +899,9 @@ export function SetupChecklist({
 
             {!appid && needsOverride ? (
               <PanelSectionRow>
-                <Notice tone="warn" title="Set the launch options yourself">
-                  This game came from a custom folder rather than Steam, so nothing here can set
-                  them. Add <Mono>{planned.launch_options}</Mono> in whichever launcher starts it.
+                <Notice tone="warn" title={t("Set the launch options yourself")}>
+                  {t("This game came from a custom folder rather than Steam, so nothing here can set")}{t(" ")}
+                  {t("them. Add")} <Mono>{planned.launch_options}</Mono>{t(" in whichever launcher starts it.")}
                 </Notice>
               </PanelSectionRow>
             ) : null}
@@ -907,15 +911,20 @@ export function SetupChecklist({
                 label={
                   <StepLabel n={next()}>
                     {planned.settings.length > 0
-                      ? `Apply the ${planned.settings.length} setting${
-                          planned.settings.length === 1 ? "" : "s"
-                        } the entry asks for`
-                      : "Follow this game's wiki entry"}
+                      ? t("Apply the {0} {1} the entry asks for", [
+                          planned.settings.length,
+                          lang() === "pl"
+                            ? plural(planned.settings.length, "ustawienie", "ustawienia", "ustawień")
+                            : planned.settings.length === 1
+                              ? "setting"
+                              : "settings",
+                        ])
+                      : t("Follow this game's wiki entry")}
                   </StepLabel>
                 }
                 description={
                   settingsSummary(planned) ||
-                  "This entry needs no special settings, but keeping it on means later wiki changes reach this game."
+                  t("This entry needs no special settings, but keeping it on means later wiki changes reach this game.")
                 }
                 checked={withSettings}
                 disabled={busy}
@@ -928,7 +937,7 @@ export function SetupChecklist({
 
             {!detail.writable ? (
               <PanelSectionRow>
-                <Notice tone="error" title="Folder is not writable">
+                <Notice tone="error" title={t("Folder is not writable")}>
                   <Mono>{shorten(detail.target)}</Mono>
                 </Notice>
               </PanelSectionRow>
@@ -939,7 +948,7 @@ export function SetupChecklist({
                 <DialogButton
                   disabled={busy || settling || !detail.writable}
                   onClick={() => void run()}
-                  onOKActionDescription="Set this game up"
+                  onOKActionDescription={t("Set this game up")}
                   style={{ flexGrow: 1 }}
                 >
                   {runLabel}
@@ -957,8 +966,8 @@ export function SetupChecklist({
               focusWithinClassName="gpfocuswithin"
               style={{ fontSize: "12px", opacity: 0.6, padding: "4px 0", lineHeight: 1.45 }}
             >
-              Nothing gets lost: any file OptiScaler replaces is set aside and put back when you
-              remove it.
+              {t("Nothing gets lost: any file OptiScaler replaces is set aside and put back when you")}{t(" ")}
+              {t("remove it.")}
             </Focusable>
           </PanelSectionRow>
         </PanelSection>
@@ -973,11 +982,19 @@ export function SetupChecklist({
       <PanelSection title={detail.name}>
         <PanelSectionRow>
           <Field
-            label={<StepLabel done>Installed as <Mono>{detail.install.filename}</Mono></StepLabel>}
+            label={<StepLabel done>{t("Installed as")}< Mono>{detail.install.filename}</Mono></StepLabel>}
             description={[
-              detail.install.version ?? "unknown build",
-              backedUp > 0 ? `${backedUp} file${backedUp === 1 ? "" : "s"} set aside` : null,
-              detail.install.managed ? "managed by this plugin" : "installed externally",
+              detail.install.version ?? t("unknown build"),
+              backedUp > 0
+                ? `${backedUp} ${
+                    lang() === "pl"
+                      ? plural(backedUp, "plik odłożony", "pliki odłożone", "plików odłożonych")
+                      : backedUp === 1
+                        ? "file set aside"
+                        : "files set aside"
+                  }`
+                : null,
+              detail.install.managed ? t("managed by this plugin") : t("installed externally"),
             ]
               .filter(Boolean)
               .join(" · ")}
@@ -988,7 +1005,7 @@ export function SetupChecklist({
             childrenLayout="inline"
             childrenContainerWidth="min"
           >
-            <Pill>change</Pill>
+            <Pill>{t("change")}</Pill>
           </Field>
         </PanelSectionRow>
 
@@ -998,13 +1015,13 @@ export function SetupChecklist({
               <ToggleField
                 label={
                   <StepLabel done={overrideSet}>
-                    {overrideSet ? "Launch options set" : "Launch options not set"}
+                    {overrideSet ? t("Launch options set") : t("Launch options not set")}
                   </StepLabel>
                 }
                 description={
                   overrideSet
                     ? launchNow ?? launchWanted
-                    : `Without ${launchWanted} Proton loads its own ${detail.install.filename}.`
+                    : t("Without {0} Proton loads its own {1}.", [launchWanted, detail.install.filename])
                 }
                 checked={overrideSet}
                 disabled={busy}
@@ -1015,7 +1032,7 @@ export function SetupChecklist({
           ) : (
             <PanelSectionRow>
               <Field
-                label={<StepLabel>Steam launch options</StepLabel>}
+                label={<StepLabel>{t("Steam launch options")}</StepLabel>}
                 description={`Steam did not report this game's launch options, so they cannot be
                   checked from here. Setting them again is harmless.`}
                 onClick={() => void applyLaunchOptions(launchWanted)}
@@ -1025,48 +1042,47 @@ export function SetupChecklist({
                 childrenLayout="inline"
                 childrenContainerWidth="min"
               >
-                <Pill>set them</Pill>
+                <Pill>{t("set them")}</Pill>
               </Field>
             </PanelSectionRow>
           )
         ) : null}
 
         {/* Only for the games whose entry asks for it. For everything else
-            there is no such thing as REFramework being missing, and a row
-            saying so would be a permanent unticked step on every game in the
+            {t("there is no such thing as REFramework being missing, and a row")}{t(" ")}
+            {t("saying so would be a permanent unticked step on every game in the")}
             library. */}
         {ref ? (
           <>
             {/* A toggle rather than a tick, and this is the one place the
                 "not a choice" reasoning was wrong. REFramework is required for
-                the game to work — but it is also a third-party DLL that can
-                stop the game booting, and when that happens the only way to
-                find out which of the two mods did it is to remove one. An
-                install with no way to bisect it is a bug report nobody can
+                {t("the game to work — but it is also a third-party DLL that can")}{t(" ")}
+                {t("stop the game booting, and when that happens the only way to")}{t(" ")}
+                {t("find out which of the two mods did it is to remove one. An")}{t(" ")}
+                {t("install with no way to bisect it is a bug report nobody can")}
                 answer. */}
             {ref.automatic || refPresent ? (
               <PanelSectionRow>
                 <ToggleField
                   label={
                     <StepLabel done={refPresent}>
-                      {refPresent ? "REFramework installed" : "REFramework is missing"}
+                      {refPresent ? t("REFramework installed") : t("REFramework is missing")}
                     </StepLabel>
                   }
                   description={
                     refPresent
                       ? [
                           detail.reframework?.revision
-                            ? `Build ${detail.reframework.revision.slice(0, 12)}`
+                            ? t("Build {0}", [detail.reframework.revision.slice(0, 12)])
                             : ref.variant === "pd-upscaler"
-                              ? "pd-upscaler build"
-                              : "nightly build",
+                              ? t("pd-upscaler build")
+                              : t("nightly build"),
                           detail.install.reframework?.managed
-                            ? "installed by this plugin"
-                            : "already in the folder",
-                          "turn off if the game stops launching",
+                            ? t("installed by this plugin")
+                            : t("already in the folder"),
+                          t("turn off if the game stops launching"),
                         ].join(" · ")
-                      : `Without it OptiScaler loads and changes nothing on screen — this game's
-                         entry says so under “${ref.source}”. ${reframeworkSummary(ref)}`
+                      : t("Without it OptiScaler loads and changes nothing on screen — this game's entry says so under “{0}”. {1}", [ref.source, reframeworkSummary(ref)])
                   }
                   checked={refPresent}
                   disabled={busy}
@@ -1078,15 +1094,14 @@ export function SetupChecklist({
             ) : (
               <PanelSectionRow>
                 <Field
-                  label={<StepLabel done={refPresent}>REFramework is missing</StepLabel>}
-                  description={`Without it OptiScaler loads and changes nothing on screen —
-                    this game's entry says so under “${ref.source}”. ${reframeworkSummary(ref)}`}
+                  label={<StepLabel done={refPresent}>{t("REFramework is missing")}</StepLabel>}
+                  description={t("Without it OptiScaler loads and changes nothing on screen — this game's entry says so under “{0}”. {1}", [ref.source, reframeworkSummary(ref)])}
                   focusable
                   bottomSeparator="standard"
                   childrenLayout="inline"
                   childrenContainerWidth="min"
                 >
-                  <Pill color="#5a4a20">you</Pill>
+                  <Pill color="#5a4a20">{t("you")}</Pill>
                 </Field>
               </PanelSectionRow>
             )}
@@ -1110,8 +1125,8 @@ export function SetupChecklist({
           ) : (
             <PanelSectionRow>
               <Field
-                label={<StepLabel>No wiki entry matched this game</StepLabel>}
-                description="Nothing is being kept up to date for it. Pick an entry yourself under “Manual setup”, or leave the settings to you."
+                label={<StepLabel>{t("No wiki entry matched this game")}</StepLabel>}
+                description={t("Nothing is being kept up to date for it. Pick an entry yourself under “Manual setup”, or leave the settings to you.")}
                 onClick={onManual}
                 onActivate={onManual}
                 focusable
@@ -1130,13 +1145,13 @@ export function SetupChecklist({
             <ToggleField
               label={
                 <StepLabel done={auto}>
-                  {auto ? "Following the wiki entry" : "Not following the wiki entry"}
+                  {auto ? t("Following the wiki entry") : t("Not following the wiki entry")}
                 </StepLabel>
               }
               description={
                 auto
-                  ? `${settingsSummary(planned) || "No special settings"} — kept up to date.`
-                  : "Every option is yours. Turn this on to let the wiki keep the ones this game needs."
+                  ? t("{0} — kept up to date.", [settingsSummary(planned) || t("No special settings")])
+                  : t("Every option is yours. Turn this on to let the wiki keep the ones this game needs.")
               }
               checked={auto}
               disabled={busy}
@@ -1147,8 +1162,8 @@ export function SetupChecklist({
         ) : null}
 
         {/* Only while this game is up. "Not running" was being listed as the
-            last step of setting a game up, which it never was: nothing about it
-            is a step, and a game sitting in the library is not half-configured
+            {t("last step of setting a game up, which it never was: nothing about it")}{t(" ")}
+            {t("is a step, and a game sitting in the library is not half-configured")}
             for being closed. What the log had to say is one row down, under
             Logs, where it belongs whether or not the game is running. */}
         {running ? (
@@ -1156,11 +1171,11 @@ export function SetupChecklist({
             <Field
               label={
                 <StepLabel done={Boolean(live?.attached)}>
-                  {live?.attached ? "Running now" : "Running, without live control"}
+                  {live?.attached ? t("Running now") : t("Running, without live control")}
                 </StepLabel>
               }
               description={
-                live?.attached ? `Live control connected. ${logSummary}` : liveReason(live)
+                live?.attached ? t("Live control connected. {0}", [logSummary]) : liveReason(live)
               }
               onClick={onLogs}
               onActivate={onLogs}
@@ -1180,31 +1195,31 @@ export function SetupChecklist({
       <PanelSection>
         <PanelSectionRow>
           {/* One row rather than three stacked buttons: on a handheld the
-              things you rarely do should not each cost a screenful, and
+              {t("things you rarely do should not each cost a screenful, and")}
               removing has to stay reachable without hunting for it. */}
           <Focusable style={{ display: "flex", gap: "8px" }} flow-children="horizontal">
             {planned ? (
               <DialogButton
                 disabled={busy}
                 onClick={() => void reapply()}
-                onOKActionDescription="Set up again from the wiki"
+                onOKActionDescription={t("Set up again from the wiki")}
                 style={{ flex: "1 1 0", minWidth: 0, fontSize: "13px", padding: "8px 6px" }}
               >
-                Set up again
+                {t("Set up again")}
               </DialogButton>
             ) : null}
             <DialogButton
               disabled={busy}
               onClick={() => void doReset()}
-              onOKActionDescription="Reset settings to stock"
+              onOKActionDescription={t("Reset settings to stock")}
               style={{ flex: "1 1 0", minWidth: 0, fontSize: "13px", padding: "8px 6px" }}
             >
-              Reset settings
+              {t("Reset settings")}
             </DialogButton>
             <DialogButton
               disabled={busy}
               onClick={() => void confirmUninstall()}
-              onOKActionDescription="Remove OptiScaler"
+              onOKActionDescription={t("Remove OptiScaler")}
               style={{
                 flex: "1 1 0",
                 minWidth: 0,
@@ -1223,8 +1238,15 @@ export function SetupChecklist({
             style={{ fontSize: "12px", opacity: 0.6, padding: "4px 0", lineHeight: 1.45 }}
           >
             {backedUp > 0
-              ? `Removing puts back the ${backedUp} file${backedUp === 1 ? "" : "s"} it set aside.`
-              : "Removing takes every file it installed back out."}
+              ? t("Removing puts back the {0} {1} it set aside.", [
+                  backedUp,
+                  lang() === "pl"
+                    ? plural(backedUp, "plik, który odłożył", "pliki, które odłożył", "plików, które odłożył")
+                    : backedUp === 1
+                      ? "file"
+                      : "files",
+                ])
+              : t("Removing takes every file it installed back out.")}
           </Focusable>
         </PanelSectionRow>
       </PanelSection>

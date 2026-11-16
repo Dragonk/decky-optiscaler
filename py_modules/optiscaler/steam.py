@@ -624,3 +624,34 @@ def find_by_appid(home, appid, exe=None, start_dir=None, name=None):
             "library": str(Path(folder).parent),
         }
     return find_shortcut_by_appid(home, appid)
+
+def steam_language(home):
+    """The UI language the Steam client runs in, spelled as Steam spells it."""
+    # registry.vdf carries the setting for the machine; each account most
+    # recently written localconfig.vdf is the fallback.
+    for root in steam_roots(home):
+        registry = root / "registry.vdf"
+        if not registry.is_file():
+            continue
+        try:
+            text = registry.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        data = parse_vdf(text)
+        # The file wraps everything in a top-level "registry" node.
+        node = data.get("registry", data)
+        lang = (node.get("hkcu", {}).get("software", {})
+                    .get("valve", {}).get("steam", {}).get("language"))
+        if isinstance(lang, str) and lang:
+            return lang
+    for config in _local_configs(home):
+        try:
+            text = config.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        data = parse_vdf(text)
+        lang = (data.get("userlocalconfigstore", {}).get("software", {})
+                    .get("valve", {}).get("steam", {}).get("language"))
+        if isinstance(lang, str) and lang:
+            return lang
+    return "english"

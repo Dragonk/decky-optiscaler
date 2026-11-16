@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { searchWiki } from "../api";
 import type { WikiSearchResult } from "../types";
 import { Notice, Pill, RowButton } from "./Common";
+import { lang, plural, t } from "../i18n";
 
 /** Manual compatibility-list picker, for when name matching gets it wrong. */
 export function WikiSearch({
@@ -43,14 +44,14 @@ export function WikiSearch({
     <>
       <PanelSectionRow>
         <TextField
-          label="Search the compatibility list"
+          label={t("Search the compatibility list")}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
       </PanelSectionRow>
       <PanelSectionRow>
         <ButtonItem layout="below" onClick={() => void run(query)}>
-          Search {count > 0 ? `${count} entries` : ""}
+          {t("Search")}{count > 0 ? ` ${count} ${lang() === "pl" ? plural(count, "wpis", "wpisy", "wpisów") : count === 1 ? "entry" : "entries"}` : ""}
         </ButtonItem>
       </PanelSectionRow>
 
@@ -63,18 +64,18 @@ export function WikiSearch({
       {current ? (
         <PanelSectionRow>
           <Notice tone="info">
-            Pinned to <b>{current}</b>. Pick another entry to change it.
+            {t("Pinned to")} <b>{current}</b>{t(". Pick another entry to change it.")}
           </Notice>
         </PanelSectionRow>
       ) : null}
 
       {results === null ? (
         <PanelSectionRow>
-          <div style={{ opacity: 0.6, fontSize: "13px" }}>Searching…</div>
+          <div style={{ opacity: 0.6, fontSize: "13px" }}>{t("Searching…")}</div>
         </PanelSectionRow>
       ) : results.length === 0 ? (
         <PanelSectionRow>
-          <div style={{ opacity: 0.6, fontSize: "13px" }}>No entries matched that text.</div>
+          <div style={{ opacity: 0.6, fontSize: "13px" }}>{t("No entries matched that text.")}</div>
         </PanelSectionRow>
       ) : (
         results.map((result) => (

@@ -5,6 +5,7 @@ import { lastPlayed } from "../hooks/useRunningGame";
 import type { Game } from "../types";
 import { Centered, Notice, Pill, RowButton } from "./Common";
 import { TabStrip } from "./TabStrip";
+import { t } from "../i18n";
 
 const PAGE_SIZE = 20;
 
@@ -70,9 +71,9 @@ export function GamesList({ onOpenGame }: { onOpenGame: (game: Game) => void }) 
 
   if (error) {
     return (
-      <PanelSection title="Games">
+      <PanelSection title={t("Games")}>
         <PanelSectionRow>
-          <Notice tone="error" title="Could not read your libraries">
+          <Notice tone="error" title={t("Could not read your libraries")}>
             {error}
           </Notice>
         </PanelSectionRow>
@@ -80,7 +81,7 @@ export function GamesList({ onOpenGame }: { onOpenGame: (game: Game) => void }) 
     );
   }
 
-  if (games === null) return <Centered>Scanning your libraries…</Centered>;
+  if (games === null) return <Centered>{t("Scanning your libraries…")}</Centered>;
 
   const filtered = filterGames(games, filter, played);
   const visible = filtered.slice(0, shown);
@@ -88,9 +89,9 @@ export function GamesList({ onOpenGame }: { onOpenGame: (game: Game) => void }) 
   const setUpCount = games.filter((game) => game.installed).length;
   const anyPlayed = Array.from(played.values()).some((value) => value !== null);
   const tabs = [
-    ...(anyPlayed ? [{ id: "recent", title: "Recent" }] : []),
-    { id: "setup", title: "Set up", badge: setUpCount },
-    { id: "all", title: "All", badge: games.length },
+    ...(anyPlayed ? [{ id: "recent", title: t("Recent") }] : []),
+    { id: "setup", title: t("Set up"), badge: setUpCount },
+    { id: "all", title: t("All"), badge: games.length },
   ];
   /** Index of the first row of the most recently revealed page. */
   const anchorIndex = shown - PAGE_SIZE;
@@ -110,10 +111,10 @@ export function GamesList({ onOpenGame }: { onOpenGame: (game: Game) => void }) 
       <PanelSection>
         {visible.length === 0 ? (
           <PanelSectionRow>
-            <Notice tone="info" title={filter === "setup" ? "None set up yet" : "No games found"}>
+            <Notice tone="info" title={filter === "setup" ? t("None set up yet") : t("No games found")}>
               {filter === "setup"
-                ? "No game has OptiScaler installed yet. Pick one under All and set it up."
-                : "No games were detected in your Steam libraries. Add a folder under Libraries if your games live somewhere else."}
+                ? t("No game has OptiScaler installed yet. Pick one under All and set it up.")
+                : t("No games were detected in your Steam libraries. Add a folder under Libraries if your games live somewhere else.")}
             </Notice>
           </PanelSectionRow>
         ) : (
@@ -151,7 +152,7 @@ export function GamesList({ onOpenGame }: { onOpenGame: (game: Game) => void }) 
                 setShown((value) => value + PAGE_SIZE);
               }}
             >
-              Show next {Math.min(PAGE_SIZE, remaining)} of {remaining} more
+              {t("Show next {0} of {1} more", [Math.min(PAGE_SIZE, remaining), remaining])}
             </ButtonItem>
           </PanelSectionRow>
         ) : null}
@@ -162,7 +163,7 @@ export function GamesList({ onOpenGame }: { onOpenGame: (game: Game) => void }) 
               onActivate={() => setShown(PAGE_SIZE)}
               style={{ padding: "6px 0", fontSize: "12px", opacity: 0.7 }}
             >
-              Back to the first {PAGE_SIZE}
+              {t("Back to the first {0}", [PAGE_SIZE])}
             </Focusable>
           </PanelSectionRow>
         ) : null}
@@ -185,9 +186,9 @@ function filterGames(games: Game[], filter: string, played: Map<string, number |
 function describePlayed(when: number | null | undefined) {
   if (!when) return undefined;
   const days = Math.floor((Date.now() / 1000 - when) / 86400);
-  if (days <= 0) return "played today";
-  if (days === 1) return "played yesterday";
-  if (days < 30) return `played ${days} days ago`;
+  if (days <= 0) return t("played today");
+  if (days === 1) return t("played yesterday");
+  if (days < 30) return t("played {0} days ago", [days]);
   const months = Math.floor(days / 30);
-  return months === 1 ? "played a month ago" : `played ${months} months ago`;
+  return months === 1 ? t("played a month ago") : t("played {0} months ago", [months]);
 }

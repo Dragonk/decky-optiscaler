@@ -1107,7 +1107,7 @@
   },
   "NvngxFG.DisableHudless": {
    "kind": "bool",
-   "member": "NvngxFGDisableHudless",
+   "member": "FGDisableHudless",
    "read": "Bool"
   },
   "NvngxFG.DispatchFlags": {

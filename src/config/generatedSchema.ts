@@ -1695,14 +1695,6 @@ export const GENERATED_OPTIONS: OptionMeta[] = [
     "type": "bool"
   },
   {
-    "section": "NvngxFG",
-    "key": "DisableHudless",
-    "label": "Disable Hudless",
-    "description": "Disable hudless resource being sent to DLSSG Might be required for some sets of DispatchFlags, see the reference",
-    "default": "false",
-    "type": "bool"
-  },
-  {
     "section": "Libraries",
     "key": "OptiDllPath",
     "label": "Opti Dll Path",

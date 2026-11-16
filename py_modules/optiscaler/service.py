@@ -120,6 +120,9 @@ class OptiScalerService:
         status["default_proxy"] = DEFAULT_PROXY
         return status
 
+    async def get_steam_language(self):
+        """The language the Steam client runs in, so the plugin UI can follow it."""
+        return {"language": steam.steam_language(self.home)}
     # -- libraries -------------------------------------------------------
     def _libraries(self):
         """Steam library folders plus any the user added by hand."""

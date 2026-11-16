@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { getOptipatcherStatus, installOptipatcher } from "../api";
 import type { OptipatcherStatus } from "../types";
 import { Notice } from "./Common";
+import { t } from "../i18n";
 
 /**
  * OptiPatcher, added or removed after the fact.
@@ -36,7 +37,7 @@ export function OptipatcherPanel({ targetDir }: { targetDir: string }) {
     setError(null);
     try {
       const result = await installOptipatcher(targetDir, enabled);
-      if (!result.ok) setError(result.error ?? "Could not change OptiPatcher");
+      if (!result.ok) setError(result.error ?? t("Could not change OptiPatcher"));
       await refresh();
     } catch (exc) {
       setError(String(exc));
@@ -46,14 +47,14 @@ export function OptipatcherPanel({ targetDir }: { targetDir: string }) {
   };
 
   return (
-    <PanelSection title="OptiPatcher">
+    <PanelSection title={t("OptiPatcher")}>
       <PanelSectionRow>
         <ToggleField
-          label="Install OptiPatcher"
+          label={t("Install OptiPatcher")}
           description={
             status.available
-              ? "Exposes a supported game's DLSS and DLSS-FG inputs without GPU spoofing."
-              : "This build of the plugin does not bundle OptiPatcher."
+              ? t("Exposes a supported game's DLSS and DLSS-FG inputs without GPU spoofing.")
+              : t("This build of the plugin does not bundle OptiPatcher.")
           }
           checked={status.installed}
           disabled={busy || !status.available}
@@ -69,11 +70,11 @@ export function OptipatcherPanel({ targetDir }: { targetDir: string }) {
       ) : null}
 
       <PanelSectionRow>
-        <Notice tone="info" title={status.installed ? "Installed" : "When to use it"}>
+        <Notice tone="info" title={status.installed ? t("Installed") : t("When to use it")}>
           {status.installed
-            ? "OptiScaler shows (OP) next to the game title in its overlay when a patch actually applied, and Spoof reads OFF."
-            : "Some games — Red Dead Redemption 2 among them — need it before OptiScaler can use their DLSS inputs. It does nothing in games it has no patterns for."}{" "}
-          Build: {status.version}.
+            ? t("OptiScaler shows (OP) next to the game title in its overlay when a patch actually applied, and Spoof reads OFF.")
+            : t("Some games — Red Dead Redemption 2 among them — need it before OptiScaler can use their DLSS inputs. It does nothing in games it has no patterns for.")}{" "}
+          {t("Build: {0}.", [status.version])}
         </Notice>
       </PanelSectionRow>
     </PanelSection>

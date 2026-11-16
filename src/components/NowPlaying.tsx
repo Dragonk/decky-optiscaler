@@ -8,6 +8,7 @@ import type { Game, GameDetail, RunningGame } from "../types";
 import { BasicPanel } from "./BasicPanel";
 import { Centered, KeyValue, Notice, Pill } from "./Common";
 import { LiveStats } from "./LiveStats";
+import { t } from "../i18n";
 
 /**
  * The running game's controls, first thing on the page.
@@ -57,16 +58,16 @@ export function NowPlaying({
 
   if (!runningGame) {
     return (
-      <PanelSection title="Nothing running">
+      <PanelSection title={t("Nothing running")}>
         <PanelSectionRow>
           <Notice tone="info">
-            Start a game and its frame generation, upscaler and frame rate appear here. Until
-            then, pick a game to set up.
+            {t("Start a game and its frame generation, upscaler and frame rate appear here. Until")}{t(" ")}
+            {t("then, pick a game to set up.")}
           </Notice>
         </PanelSectionRow>
         <PanelSectionRow>
           <ButtonItem layout="below" onClick={onBrowse}>
-            Browse games
+            {t("Browse games")}
           </ButtonItem>
         </PanelSectionRow>
       </PanelSection>
@@ -81,8 +82,8 @@ export function NowPlaying({
         <PanelSectionRow>
           <Notice tone="info">
             {detail
-              ? "OptiScaler is not installed for this game yet."
-              : "This does not look like an installed Steam game, so its folder could not be found."}
+              ? t("OptiScaler is not installed for this game yet.")
+              : t("This does not look like an installed Steam game, so its folder could not be found.")}
           </Notice>
         </PanelSectionRow>
         <PanelSectionRow>
@@ -90,7 +91,7 @@ export function NowPlaying({
             layout="below"
             onClick={() => (detail ? onOpenGame(detail as unknown as Game) : onBrowse())}
           >
-            {detail ? "Set up OptiScaler" : "Browse games"}
+            {detail ? t("Set up OptiScaler") : t("Browse games")}
           </ButtonItem>
         </PanelSectionRow>
       </PanelSection>
@@ -107,16 +108,16 @@ export function NowPlaying({
             <div style={{ marginBottom: "4px" }}>
               <Pill color="#2f6b3f">OptiScaler · {detail!.install.filename}</Pill>
               {live?.attached ? (
-                <Pill color="#2f6b3f">live</Pill>
+                <Pill color="#2f6b3f">{t("live")}</Pill>
               ) : (
-                <Pill color="#5a4a20">not connected</Pill>
+                <Pill color="#5a4a20">{t("not connected")}</Pill>
               )}
             </div>
             {/* The version OptiScaler's own FFX Settings box prints. */}
             {ffx?.version ? (
               <KeyValue
                 label="FidelityFX"
-                value={`${ffx.version}${ffx.fsr4_capable ? " · FSR 4 capable" : ""}`}
+                value={`${ffx.version}${ffx.fsr4_capable ? t(" · FSR 4 capable") : ""}`}
               />
             ) : null}
           </div>
@@ -126,7 +127,7 @@ export function NowPlaying({
       <LiveStats live={live} />
 
       {config.loading ? (
-        <Centered>Reading config…</Centered>
+        <Centered>{t("Reading config…")}</Centered>
       ) : (
         <BasicPanel
           values={config.values}
@@ -153,7 +154,7 @@ export function NowPlaying({
               } as Game)
             }
           >
-            All settings & monitoring
+            {t("All settings & monitoring")}
           </ButtonItem>
         </PanelSectionRow>
       </PanelSection>

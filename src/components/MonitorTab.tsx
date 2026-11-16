@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { clearLog, getMonitor, setLogging } from "../api";
 import type { MonitorReport } from "../types";
 import { KeyValue, Mono, Notice, Pill } from "./Common";
+import { t } from "../i18n";
 
 const REFRESH_MS = 3000;
 
@@ -47,9 +48,9 @@ export function MonitorTab({
 
   if (!report) {
     return (
-      <PanelSection title="Monitoring">
+      <PanelSection title={t("Monitoring")}>
         <PanelSectionRow>
-          <Notice tone="info">Reading OptiScaler log…</Notice>
+          <Notice tone="info">{t("Reading OptiScaler log…")}</Notice>
         </PanelSectionRow>
       </PanelSection>
     );
@@ -61,11 +62,11 @@ export function MonitorTab({
 
   return (
     <>
-      <PanelSection title="Monitoring">
+      <PanelSection title={t("Monitoring")}>
         <PanelSectionRow>
           <ToggleField
-            label="Write OptiScaler log"
-            description="Monitoring reads OptiScaler.log. Turning this on takes effect at the next game launch."
+            label={t("Write OptiScaler log")}
+            description={t("Monitoring reads OptiScaler.log. Turning this on takes effect at the next game launch.")}
             checked={loggingOn}
             disabled={busy}
             bottomSeparator="standard"
@@ -81,10 +82,10 @@ export function MonitorTab({
 
         {!report.log_present ? (
           <PanelSectionRow>
-            <Notice tone="warn" title="No log yet">
+            <Notice tone="warn" title={t("No log yet")}>
               {loggingOn
-                ? "Logging is enabled. Launch the game once and the runtime details will appear here."
-                : "Enable logging above, then launch the game to see what OptiScaler actually loaded."}
+                ? t("Logging is enabled. Launch the game once and the runtime details will appear here.")
+                : t("Enable logging above, then launch the game to see what OptiScaler actually loaded.")}
             </Notice>
           </PanelSectionRow>
         ) : null}
@@ -92,26 +93,26 @@ export function MonitorTab({
 
       {report.log_present ? (
         <>
-          <PanelSection title="Detected at Runtime">
+          <PanelSection title={t("Detected at Runtime")}>
             <PanelSectionRow>
               <div style={{ padding: "2px 0" }}>
-                <KeyValue label="Upscaler in use" value={state.upscaler ?? "—"} />
+                <KeyValue label={t("Upscaler in use")} value={state.upscaler ?? "—"} />
                 <KeyValue
-                  label="Frame generation"
+                  label={t("Frame generation")}
                   value={
                     report.frame_generation.length > 0
                       ? report.frame_generation.join(", ")
-                      : "none detected"
+                      : t("none detected")
                   }
                 />
-                <KeyValue label="Loaded as" value={state.proxy ? <Mono>{state.proxy}</Mono> : "—"} />
-                <KeyValue label="GPU" value={state.gpu ?? "—"} />
-                <KeyValue label="Game" value={state.game_name ?? "—"} />
-                <KeyValue label="Executable" value={state.game_exe ? <Mono>{state.game_exe}</Mono> : "—"} />
-                <KeyValue label="Game version" value={state.game_version ?? "—"} />
+                <KeyValue label={t("Loaded as")} value={state.proxy ? <Mono>{state.proxy}</Mono> : "—"} />
+                <KeyValue label={t("GPU")} value={state.gpu ?? "—"} />
+                <KeyValue label={t("Game")} value={state.game_name ?? "—"} />
+                <KeyValue label={t("Executable")} value={state.game_exe ? <Mono>{state.game_exe}</Mono> : "—"} />
+                <KeyValue label={t("Game version")} value={state.game_version ?? "—"} />
                 <KeyValue label="Wine/Proton" value={state.wine ?? "—"} />
                 <KeyValue
-                  label="Log updated"
+                  label={t("Log updated")}
                   value={
                     report.log_modified
                       ? new Date(report.log_modified * 1000).toLocaleTimeString()
@@ -122,7 +123,7 @@ export function MonitorTab({
             </PanelSectionRow>
           </PanelSection>
 
-          <PanelSection title="Configured (next launch)">
+          <PanelSection title={t("Configured (next launch)")}>
             <PanelSectionRow>
               <div style={{ padding: "2px 0" }}>
                 {Object.entries(report.configured ?? {}).map(([key, value]) => (
@@ -132,7 +133,7 @@ export function MonitorTab({
             </PanelSectionRow>
           </PanelSection>
 
-          <PanelSection title="Log Health">
+          <PanelSection title={t("Log Health")}>
             <PanelSectionRow>
               <div style={{ padding: "4px 0" }}>
                 {Object.entries(report.counts ?? {})
@@ -150,7 +151,7 @@ export function MonitorTab({
           </PanelSection>
 
           {(report.hints ?? []).length > 0 ? (
-            <PanelSection title="What the log is telling you">
+            <PanelSection title={t("What the log is telling you")}>
               {report.hints.map((hint, index) => (
                 <PanelSectionRow key={index}>
                   <Notice tone="warn">{hint}</Notice>
@@ -160,14 +161,14 @@ export function MonitorTab({
           ) : null}
 
           {problems.length > 0 ? (
-            <PanelSection title="Warnings & Errors">
+            <PanelSection title={t("Warnings & Errors")}>
               <PanelSectionRow>
                 <LogList entries={problems} />
               </PanelSectionRow>
             </PanelSection>
           ) : null}
 
-          <PanelSection title="Recent Log">
+          <PanelSection title={t("Recent Log")}>
             <PanelSectionRow>
               <LogList entries={(report.recent ?? []).slice(-40)} />
             </PanelSectionRow>
@@ -182,7 +183,7 @@ export function MonitorTab({
                   setBusy(false);
                 }}
               >
-                Clear log file
+                {t("Clear log file")}
               </ButtonItem>
             </PanelSectionRow>
           </PanelSection>
@@ -207,7 +208,7 @@ function LogList({ entries }: { entries: MonitorReport["recent"] }) {
       }}
     >
       {entries.length === 0 ? (
-        <div style={{ opacity: 0.5 }}>Nothing logged.</div>
+        <div style={{ opacity: 0.5 }}>{t("Nothing logged.")}</div>
       ) : (
         entries.map((entry, index) => (
           <div key={index} style={{ color: LEVEL_COLORS[entry.level] ?? "#c8d3dd" }}>

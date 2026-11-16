@@ -38,6 +38,9 @@ class Plugin:
     async def get_status(self) -> dict:
         return await self.service.get_status()
 
+    async def get_steam_language(self) -> dict:
+        """The language the Steam client runs in, so the UI can follow it."""
+        return await self.service.get_steam_language()
     async def prepare_payload(self, force: bool = False) -> dict:
         try:
             root = await self.service.ensure_payload(force)

@@ -1,7 +1,34 @@
 # Changelog
 
 Newest first. Each release ships `Decky OptiScaler.zip` for Decky Loader's
-*Install from URL* (Developer mode), and bundles **OptiScaler 10.0.0-pre1** (nightly 2026-11-13).
+*Install from URL* (Developer mode), and bundles **OptiScaler 10.0.0-pre1** (nightly 2026-11-16).
+
+## [0.0.28] - 2026-11-16
+
+### Added
+
+- **The UI now speaks Polish as well as English, following the language the
+  Steam client runs in.** The backend reads the language from Steam's
+  registry.vdf (HKCU/Software/Valve/Steam), falls back to the newest
+  account's localconfig.vdf, and then to English; the frontend re-renders
+  the moment it arrives. Every panel, prompt and status line is translated
+  - around 650 strings, with Polish plural forms wherever a count changes
+  the wording.
+
+### Changed
+
+- **Bundled OptiScaler updated to the 2026-11-16 nightly** (still
+  10.0.0-pre1, built from 1e568bb3): `DisableHudless` moves to `[FrameGen]`
+  as `FGDisableHudless` - the legacy key is only read when FGInput is
+  NvngxFG and is never saved - and DLSSG detection becomes time-expiring,
+  so a game stuck below 2 FPS now reads as frame generation off.
+- **The live-control State mirror follows the nightly's new layout.** The
+  expiring DLSSG count and the new PresentRateMeter beside it add 208 bytes
+  before the frame-interval pair, so every tail offset moved; the ASI is
+  rebuilt against the new layout and its static_asserts pin it. Run
+  **Reinstall live control** once after this update.
+- **Build dependencies refreshed** (decky/ui 4.16.5, jsdom 31, rollup
+  4.68, tslib 2.9, @types/react 19.3).
 
 ## [0.0.27] - 2026-11-13
 

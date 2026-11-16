@@ -23,6 +23,7 @@
 import { getLaunchOptions, recordLaunchOptions } from "./api";
 import { readLaunchOptions } from "./hooks/useRunningGame";
 import type { LaunchRecord } from "./types";
+import { t } from "./i18n";
 
 /** What to do with the launch options when OptiScaler is removed. */
 export type LaunchAction = "restore" | "clear" | "keep";
@@ -249,7 +250,7 @@ export function launchChoices(state: LaunchState): LaunchChoice[] {
     recorded !== null && recorded.trim() !== "" && recorded !== current
       ? [{
           action: "restore",
-          label: "Put back what was there before",
+          label: t("Put back what was there before"),
           description: recorded,
           value: recorded,
         }]
@@ -257,10 +258,10 @@ export function launchChoices(state: LaunchState): LaunchChoice[] {
 
   const keep: LaunchChoice = {
     action: "keep",
-    label: "Leave them as they are",
+    label: t("Leave them as they are"),
     description: current
-      ? `Steam keeps passing: ${current}`
-      : "Nothing in Steam is changed.",
+      ? t("Steam keeps passing: {0}", [current])
+      : t("Nothing in Steam is changed."),
     value: null,
   };
 
@@ -280,18 +281,17 @@ export function launchChoices(state: LaunchState): LaunchChoice[] {
     action: "clear",
     label:
       blind
-        ? "Clear the launch options"
+        ? t("Clear the launch options")
         : cleared === ""
-          ? "Clear the launch options"
-          : "Remove only the OptiScaler override",
+          ? t("Clear the launch options")
+          : t("Remove only the OptiScaler override"),
     description: blind
-      ? `Steam would not report this game's launch options, so this empties the field
-         completely — including anything you added yourself.`
+      ? t("Steam would not report this game's launch options, so this empties the field completely — including anything you added yourself.")
       : cleared === ""
         ? recorded === ""
-          ? "This game had none before OptiScaler was installed."
-          : "Leaves the launch options empty."
-        : `Leaves: ${cleared}`,
+          ? t("This game had none before OptiScaler was installed.")
+          : t("Leaves the launch options empty.")
+        : t("Leaves: {0}", [cleared]),
     value: cleared,
   };
 

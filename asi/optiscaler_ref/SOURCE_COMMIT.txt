@@ -1,8 +1,8 @@
-5f69a25d60cdd4f99d48ea54893972b227ddf583
+1e568bb3df081988416b8aa85fa4efe0b22c58cf
 
-Tag:      v10.0.0-pre1 (the shipped nightly 20261113 runtime is built from this lineage)
-Date:     2026-11-13
-Source:   https://github.com/optiscaler/OptiScaler/tree/5f69a25d60cdd4f99d48ea54893972b227ddf583/OptiScaler
+Tag:      v10.0.0-pre1 (the shipped nightly 20261116 runtime is built from this lineage)
+Date:     2026-11-16
+Source:   https://github.com/optiscaler/OptiScaler/tree/1e568bb3df081988416b8aa85fa4efe0b22c58cf/OptiScaler
 
 The nightly tree moves files against the v10.0.0-pre1 tag: the vendored
 reference files live at OptiScaler/hooks/FG_Hooks.cpp,
@@ -64,3 +64,11 @@ capturedHudlesses with a std::mutex. detail::table doubles as map and set in
 4.5.0, so the 64-byte ud_table stand-in in asi/live.cpp covers both tables;
 the bucket layout is shared, only the value stride differs (4 for the set,
 8 for the pair).
+
+The 20261116 nightly replaces State::dlssgDetectedInterpolationCount with a
+time-expiring pair (_dlssgDetectedCount + _dlssgDetectedTime) followed by a
+PresentRateMeter (gameFrameRate, the FG output-present cadence meter from
+menu/PresentRateMeter.h): 208 bytes between dlssgLastSetMode and
+dlssgInputGameEnabled, so every member the state_tail mirror reaches moved by
+that much and the frame intervals sit 208 bytes further in (the static_asserts
+in asi/live.cpp pin the new offsets).

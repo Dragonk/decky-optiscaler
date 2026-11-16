@@ -1,5 +1,6 @@
 import { GENERATED_OPTIONS } from "./generatedSchema";
 import type { OptionMeta } from "../types";
+import { t } from "../i18n";
 
 export interface TabDefinition {
   id: string;
@@ -11,53 +12,53 @@ export interface TabDefinition {
 
 /** Friendlier headings than the raw INI section names. */
 export const SECTION_TITLES: Record<string, string> = {
-  Upscalers: "Upscaler Selection",
-  FrameGen: "Frame Generation",
-  FSRFG: "FSR Frame Generation",
-  XeFG: "XeSS Frame Generation",
-  OptiFG: "OptiFG & HUD Fix",
+  Upscalers: t("Upscaler Selection"),
+  FrameGen: t("Frame Generation"),
+  FSRFG: t("FSR Frame Generation"),
+  XeFG: t("XeSS Frame Generation"),
+  OptiFG: t("OptiFG & HUD Fix"),
   Nukems: "Nukem's dlssg-to-fsr3",
-  FSRFGInputs: "FSR FG Inputs",
-  Inputs: "Upscaler Inputs",
-  Framerate: "Framerate Limit",
+  FSRFGInputs: t("FSR FG Inputs"),
+  Inputs: t("Upscaler Inputs"),
+  Framerate: t("Framerate Limit"),
   XeSS: "XeSS",
   FSR: "FSR / FidelityFX",
   DLSS: "DLSS",
   DLSSD: "DLSS Ray Reconstruction",
-  Libraries: "Library Paths",
-  Menu: "In-Game Overlay",
-  Spoofing: "GPU Spoofing",
-  Plugins: "ASI Plugins",
+  Libraries: t("Library Paths"),
+  Menu: t("In-Game Overlay"),
+  Spoofing: t("GPU Spoofing"),
+  Plugins: t("ASI Plugins"),
   NvApi: "NvAPI",
   Dx11withDx12: "DX11 on DX12",
-  Hooks: "Hooking",
-  Sharpness: "Sharpness",
-  OutputScaling: "Output Scaling",
+  Hooks: t("Hooking"),
+  Sharpness: t("Sharpness"),
+  OutputScaling: t("Output Scaling"),
   CAS: "Contrast Adaptive Sharpening",
-  Log: "Logging",
-  InitFlags: "Init Flags",
-  UpscaleRatio: "Upscale Ratio Override",
-  QualityOverrides: "Quality Ratio Overrides",
-  DRS: "Dynamic Resolution",
+  Log: t("Logging"),
+  InitFlags: t("Init Flags"),
+  UpscaleRatio: t("Upscale Ratio Override"),
+  QualityOverrides: t("Quality Ratio Overrides"),
+  DRS: t("Dynamic Resolution"),
   HDR: "HDR",
   "V-Sync": "V-Sync",
-  Anisotropy: "Anisotropic Filtering",
-  Mipmap: "Mipmap Bias",
-  ProcessFilter: "Process Filter",
-  Hotfix: "Hotfixes & Workarounds",
+  Anisotropy: t("Anisotropic Filtering"),
+  Mipmap: t("Mipmap Bias"),
+  ProcessFilter: t("Process Filter"),
+  Hotfix: t("Hotfixes & Workarounds"),
 };
 
 export const TABS: TabDefinition[] = [
   {
     id: "framegen",
-    title: "Frame Gen",
+    title: t("Frame Gen"),
     sections: ["FrameGen", "FSRFG", "XeFG", "Nukems", "FSRFGInputs"],
     blurb:
-      "Pick an FG input (where frames come from) and an FG output (which generator draws them).",
+      t("Pick an FG input (where frames come from) and an FG output (which generator draws them)."),
   },
   {
     id: "upscaling",
-    title: "Upscaling",
+    title: t("Upscaling"),
     sections: [
       "Upscalers",
       "Inputs",
@@ -70,22 +71,22 @@ export const TABS: TabDefinition[] = [
       "QualityOverrides",
       "DRS",
     ],
-    blurb: "Which upscaler backend replaces the one the game asks for.",
+    blurb: t("Which upscaler backend replaces the one the game asks for."),
   },
   {
     id: "hudfix",
-    title: "HUD Fix",
+    title: t("HUD Fix"),
     sections: ["OptiFG"],
-    blurb: "Fixes UI ghosting and flicker when frame generation is active.",
+    blurb: t("Fixes UI ghosting and flicker when frame generation is active."),
   },
   {
     id: "image",
-    title: "Image",
+    title: t("Image"),
     sections: ["Sharpness", "CAS", "HDR", "InitFlags", "Anisotropy", "Mipmap", "V-Sync", "Framerate"],
   },
   {
     id: "compat",
-    title: "Compatibility",
+    title: t("Compatibility"),
     sections: [
       "Spoofing",
       "Hotfix",
@@ -96,9 +97,9 @@ export const TABS: TabDefinition[] = [
       "ProcessFilter",
       "Libraries",
     ],
-    blurb: "Per-game workarounds. Only touch these if the wiki entry tells you to.",
+    blurb: t("Per-game workarounds. Only touch these if the wiki entry tells you to."),
   },
-  { id: "overlay", title: "Overlay", sections: ["Menu", "Log"] },
+  { id: "overlay", title: t("Overlay"), sections: ["Menu", "Log"] },
 ];
 
 /** Options surfaced at the top of a tab and in the quick panel. */

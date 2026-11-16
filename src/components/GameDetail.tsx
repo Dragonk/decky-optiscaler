@@ -24,6 +24,7 @@ import { InstallPanel } from "./InstallPanel";
 import { LiveStats } from "./LiveStats";
 import { MonitorTab } from "./MonitorTab";
 import { SetupChecklist } from "./SetupChecklist";
+import { t } from "../i18n";
 
 const ADVANCED_KEY = "decky-optiscaler:advanced";
 
@@ -79,7 +80,7 @@ function BackRow({
     >
       <DialogButton
         onClick={onBack}
-        onOKActionDescription="Back to setup"
+        onOKActionDescription={t("Back to setup")}
         // Marker for the UI harness, the same way TabStrip marks its tabs.
         {...({ "data-back": "setup" } as Record<string, string>)}
         style={{
@@ -95,12 +96,12 @@ function BackRow({
         <span style={{ opacity: 0.7 }}>‹</span>
         {top ? (
           <>
-            <span style={{ opacity: 0.7 }}>Setup</span>
+            <span style={{ opacity: 0.7 }}>{t("Setup")}</span>
             <span style={{ opacity: 0.4 }}>/</span>
             <span style={{ fontWeight: 600 }}>{label}</span>
           </>
         ) : (
-          <span style={{ fontWeight: 600 }}>Back to guided setup</span>
+          <span style={{ fontWeight: 600 }}>{t("Back to guided setup")}</span>
         )}
       </DialogButton>
     </Focusable>
@@ -138,7 +139,7 @@ export function GameDetail({
     try {
       setDetail(await getGame(gamePath, gameName));
     } catch (exc) {
-      toaster.toast({ title: "Could not read game", body: String(exc) });
+      toaster.toast({ title: t("Could not read game"), body: String(exc) });
     } finally {
       setLoading(false);
     }
@@ -188,9 +189,9 @@ export function GameDetail({
     const result = await applyAutoSettings(targetDir, gamePath, gameName, [folder]);
     if (result.ok) {
       await config.reload();
-      toaster.toast({ title: "Automatic settings applied", body: detailName(plan, gameName) });
+      toaster.toast({ title: t("Automatic settings applied"), body: detailName(plan, gameName) });
     } else {
-      toaster.toast({ title: "Could not apply the wiki settings", body: String(result.error) });
+      toaster.toast({ title: t("Could not apply the wiki settings"), body: String(result.error) });
     }
   };
 
@@ -209,11 +210,11 @@ export function GameDetail({
 
   const isThisGameRunning = isRunning;
 
-  if (loading && !detail) return <Centered>Reading game folder…</Centered>;
+  if (loading && !detail) return <Centered>{t("Reading game folder…")}</Centered>;
   if (!detail) {
     return (
       <Centered>
-        <div>Could not read that game folder.</div>
+        <div>{t("Could not read that game folder.")}</div>
         <ButtonItem layout="below" onClick={onBack}>
           Back
         </ButtonItem>
@@ -240,8 +241,8 @@ export function GameDetail({
         }}
       >
         <span style={{ flexGrow: 1 }}>
-          Applied in-game — no restart needed.
-          {config.live.backend_change ? " The upscaler reloads on the next frame." : ""}
+          {t("Applied in-game — no restart needed.")}
+          {config.live.backend_change ? t(" The upscaler reloads on the next frame.") : ""}
         </span>
       </div>
     ) : null;
@@ -263,16 +264,16 @@ export function GameDetail({
         }}
       >
         <span style={{ flexGrow: 1 }}>
-          Saved. OptiScaler reads its config at launch, so restart the game to apply.
+          {t("Saved. OptiScaler reads its config at launch, so restart the game to apply.")}
         </span>
         {isThisGameRunning && runningGame ? (
           <button
             onClick={() => {
               if (restartGame(runningGame)) {
                 config.clearDirty();
-                toaster.toast({ title: "Restarting", body: detail.name });
+                toaster.toast({ title: t("Restarting"), body: detail.name });
               } else {
-                toaster.toast({ title: "Could not restart", body: "Relaunch manually." });
+                toaster.toast({ title: t("Could not restart"), body: t("Relaunch manually.") });
               }
             }}
             style={{
@@ -288,7 +289,7 @@ export function GameDetail({
               whiteSpace: "nowrap",
             }}
           >
-            Restart now
+            {t("Restart now")}
           </button>
         ) : null}
       </div>
@@ -297,7 +298,7 @@ export function GameDetail({
   const tabs = [
     {
       id: "install",
-      title: "Setup",
+      title: t("Setup"),
       content: (
         <TabBody>
           {setupView === "checklist" ? (
@@ -330,7 +331,7 @@ export function GameDetail({
           ) : (
             <>
               <BackRow
-                label={setupView === "manual" ? "Manual setup" : "Logs"}
+                label={setupView === "manual" ? t("Manual setup") : t("Logs")}
                 onBack={() => setSetupView("checklist")}
               />
               {setupView === "manual" ? (
@@ -353,7 +354,7 @@ export function GameDetail({
                 />
               )}
               <BackRow
-                label={setupView === "manual" ? "Manual setup" : "Logs"}
+                label={setupView === "manual" ? t("Manual setup") : t("Logs")}
                 onBack={() => setSetupView("checklist")}
                 position="bottom"
               />
@@ -366,13 +367,13 @@ export function GameDetail({
       ? [
           {
             id: "basic",
-            title: "Settings",
+            title: t("Settings"),
             content: (
               <TabBody>
                 <LiveStats live={liveStatus} />
                 {/* No targetDir here on purpose: switching the upscaler in the
-                    running game belongs in the Quick Access panel, which is
-                    where the game is actually being driven from. This tab is
+                    {t("running game belongs in the Quick Access panel, which is")}{t(" ")}
+                    {t("where the game is actually being driven from. This tab is")}
                     for setting a game up, and its changes take effect at
                     launch. */}
                 <BasicPanel
@@ -390,8 +391,8 @@ export function GameDetail({
                 <PanelSection>
                   <PanelSectionRow>
                     <Field
-                      label="Every OptiScaler option"
-                      description="Frame Gen, Upscaling, HUD Fix, Image, Compatibility, Overlay."
+                      label={t("Every OptiScaler option")}
+                      description={t("Frame Gen, Upscaling, HUD Fix, Image, Compatibility, Overlay.")}
                       onClick={() => showAdvanced(true)}
                       onActivate={() => showAdvanced(true)}
                       focusable
@@ -446,12 +447,12 @@ export function GameDetail({
             {installed ? (
               <Pill color="#2f6b3f">{detail.install.filename}</Pill>
             ) : (
-              <Pill>not set up</Pill>
+              <Pill>{t("not set up")}</Pill>
             )}
             {detail.install.fsr4?.ffx?.version ? (
               <Pill>FFX {detail.install.fsr4.ffx.version}</Pill>
             ) : null}
-            {isThisGameRunning ? <Pill color="#3a6ea5">running</Pill> : null}
+            {isThisGameRunning ? <Pill color="#3a6ea5">{t("running")}</Pill> : null}
           </>
         }
         action={

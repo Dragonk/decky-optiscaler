@@ -14,6 +14,7 @@ import { TabStrip } from "./TabStrip";
 import { Centered, Notice, Pill } from "./Common";
 import { MULTIPLIER_KEY, MULTIPLIER_SECTION, supportsMultiplier } from "../config/basic";
 import { curatedLabel } from "../config/labels";
+import { t } from "../i18n";
 
 /**
  * The Quick Access panel: the plugin's front door, opened over a running game.
@@ -42,8 +43,8 @@ export function QuickPanel({
     <>
       <TabStrip
         tabs={[
-          { id: "now", title: "Now Playing" },
-          { id: "games", title: "Games" },
+          { id: "now", title: t("Now Playing") },
+          { id: "games", title: t("Games") },
         ]}
         active={tab}
         onChange={setTab}
@@ -65,7 +66,7 @@ export function QuickPanel({
           <PanelSection>
             <PanelSectionRow>
               <ButtonItem layout="below" onClick={() => onOpenManager()}>
-                Libraries & all settings
+                {t("Libraries & all settings")}
               </ButtonItem>
             </PanelSectionRow>
           </PanelSection>
@@ -128,10 +129,10 @@ function NowPlayingTab({
 
   if (!runningGame) {
     return (
-      <PanelSection title="Nothing running">
+      <PanelSection title={t("Nothing running")}>
         <PanelSectionRow>
           <ButtonItem layout="below" onClick={onBrowse}>
-            Browse games
+            {t("Browse games")}
           </ButtonItem>
         </PanelSectionRow>
       </PanelSection>
@@ -163,16 +164,16 @@ function NowPlayingTab({
         </PanelSectionRow>
       </PanelSection>
 
-      {resolving ? <Centered>Looking up this game…</Centered> : null}
+      {resolving ? <Centered>{t("Looking up this game…")}</Centered> : null}
 
       {!resolving && notFound ? (
         <PanelSection>
           <PanelSectionRow>
-            <Notice tone="warn">Not an installed Steam game — add its folder as a library.</Notice>
+            <Notice tone="warn">{t("Not an installed Steam game — add its folder as a library.")}</Notice>
           </PanelSectionRow>
           <PanelSectionRow>
             <ButtonItem layout="below" onClick={() => onOpenManager()}>
-              Manage games
+              {t("Manage games")}
             </ButtonItem>
           </PanelSectionRow>
         </PanelSection>
@@ -187,7 +188,7 @@ function NowPlayingTab({
                 onOpenManager(detail?.path, detail?.name, String(runningGame.appid))
               }
             >
-              Set up OptiScaler
+              {t("Set up OptiScaler")}
             </ButtonItem>
           </PanelSectionRow>
         </PanelSection>
@@ -196,7 +197,7 @@ function NowPlayingTab({
       {installed && detail ? (
         <>
           {/* A write the backend would not take reaches neither the file nor
-              the running game, and this is the surface those changes are made
+              {t("the running game, and this is the surface those changes are made")}
               from, so it has to say so rather than leave the control looking
               as if it worked. */}
           {config.error ? (
@@ -208,7 +209,7 @@ function NowPlayingTab({
           ) : null}
 
           {config.loading ? (
-            <Centered>Reading config…</Centered>
+            <Centered>{t("Reading config…")}</Centered>
           ) : (
             <BasicPanel
               values={config.values}
@@ -233,16 +234,16 @@ function NowPlayingTab({
                   onClick={() => {
                     if (restartGame(runningGame)) {
                       config.clearDirty();
-                      toaster.toast({ title: "Restarting", body: runningGame.name });
+                      toaster.toast({ title: t("Restarting"), body: runningGame.name });
                     } else {
                       toaster.toast({
-                        title: "Could not restart",
-                        body: "Relaunch the game manually.",
+                        title: t("Could not restart"),
+                        body: t("Relaunch the game manually."),
                       });
                     }
                   }}
                 >
-                  Restart game to apply
+                  {t("Restart game to apply")}
                 </ButtonItem>
               </PanelSectionRow>
             </PanelSection>
@@ -256,7 +257,7 @@ function NowPlayingTab({
                   onOpenManager(detail.path, detail.name, String(runningGame.appid))
                 }
               >
-                All settings & logs
+                {t("All settings & logs")}
               </ButtonItem>
             </PanelSectionRow>
           </PanelSection>
@@ -272,7 +273,7 @@ function InstallPill({
   resolving,
 }: Readonly<{ filename?: string | null; resolving: boolean }>) {
   if (filename) return <Pill color="#2f6b3f">{filename}</Pill>;
-  return <Pill>{resolving ? "checking…" : "not installed"}</Pill>;
+  return <Pill>{resolving ? t("checking…") : t("not installed")}</Pill>;
 }
 
 /** Whether the in-game plugin is answering, shown wherever the game is. */
@@ -282,9 +283,9 @@ function LivePill({ live }: Readonly<{ live: LiveStatus | null }>) {
     // An in-game plugin older than the one this build ships attaches and
     // answers normally, so the only sign of it is what it leaves out. Say so
     // here; the Setup tab's Logs page explains it and offers the reinstall.
-    if (live.asi_current === false) return <Pill color="#5a4a20">live · outdated</Pill>;
-    return <Pill color="#2f6b3f">live{live.can_switch_upscaler ? "" : " · fg only"}</Pill>;
+    if (live.asi_current === false) return <Pill color="#5a4a20">{t("live · outdated")}</Pill>;
+    return <Pill color="#2f6b3f">live{live.can_switch_upscaler ? "" : t(" · fg only")}</Pill>;
   }
-  if (!live.asi_installed) return <Pill color="#5a4a20">live control off</Pill>;
-  return <Pill color="#5a4a20">not connected</Pill>;
+  if (!live.asi_installed) return <Pill color="#5a4a20">{t("live control off")}</Pill>;
+  return <Pill color="#5a4a20">{t("not connected")}</Pill>;
 }

@@ -6,8 +6,12 @@ import { ManagerPage } from "./components/ManagerPage";
 import { QuickPanel } from "./components/QuickPanel";
 import { ROUTE, openManager } from "./navigation";
 import { useRunningGame } from "./hooks/useRunningGame";
+import { setLang, useLang } from "./i18n";
+import { getSteamLanguage } from "./api";
 
 function Content() {
+  // Re-renders the panel when the language resolved from Steam lands.
+  useLang();
   const runningGame = useRunningGame();
 
   // Deep-link straight to a game when the panel already knows which one, so
@@ -21,6 +25,13 @@ function Content() {
 export default definePlugin(() => {
   routerHook.addRoute(ROUTE, ManagerPage, { exact: true });
   const unpatchContextMenu = patchLibraryContextMenu();
+
+  // The UI language follows the Steam client own language (registry.vdf,
+  // newest localconfig.vdf as fallback), read once at plugin load. English for
+  // everything else.
+  getSteamLanguage()
+    .then((result) => setLang(result.language === "polish" ? "pl" : "en"))
+    .catch(() => undefined);
 
   return {
     name: "Decky OptiScaler",

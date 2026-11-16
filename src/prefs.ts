@@ -11,6 +11,7 @@
  */
 import { getPref, setPref } from "./api";
 import type { LaunchAction } from "./launchOptions";
+import { t } from "./i18n";
 
 /** Whether answers are remembered at all. Absent means yes. */
 export const PREF_REMEMBER = "remember_choices";
@@ -27,21 +28,21 @@ export const REMEMBERED_QUESTIONS: {
 }[] = [
   {
     key: PREF_INSTALL_LAUNCH,
-    title: "Setting the launch options after an install",
+    title: t("Setting the launch options after an install"),
     describe: (value) =>
       value === "always"
-        ? "Set them without asking."
-        : "Never set them; the game is left as Steam has it.",
+        ? t("Set them without asking.")
+        : t("Never set them; the game is left as Steam has it."),
   },
   {
     key: PREF_REMOVE_LAUNCH,
-    title: "The launch options when OptiScaler is removed",
+    title: t("The launch options when OptiScaler is removed"),
     describe: (value) =>
       value === "restore"
-        ? "Put back what was there before the install."
+        ? t("Put back what was there before the install.")
         : value === "clear"
-          ? "Take the OptiScaler override back out."
-          : "Leave them exactly as they are.",
+          ? t("Take the OptiScaler override back out.")
+          : t("Leave them exactly as they are."),
   },
 ];
 

@@ -16,6 +16,8 @@ import { GamesList } from "./GamesList";
 import { LibraryBrowser } from "./LibraryBrowser";
 import { NowPlaying } from "./NowPlaying";
 import { SettingsTab } from "./SettingsTab";
+import { t } from "../i18n";
+import { useLang } from "../i18n";
 
 interface Selection {
   path: string;
@@ -25,6 +27,7 @@ interface Selection {
 
 /** Full-screen page: library browser, or one game's detail view. */
 export function ManagerPage() {
+  useLang();
   const [status, setStatus] = useState<PayloadStatus | null>(null);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [preparing, setPreparing] = useState(false);
@@ -67,9 +70,9 @@ export function ManagerPage() {
           // target has moved: the folder was worked out from the shortcut's
           // executable and there was no executable there to work from.
           setResolveError(
-            "Neither Steam nor this game's shortcut points at a folder that exists, " +
-              "so it cannot be opened directly. Pick it from the library list, or add " +
-              "the folder it lives in as a custom library.",
+            t("Neither Steam nor this game's shortcut points at a folder that exists, ") +
+              t("so it cannot be opened directly. Pick it from the library list, or add ") +
+              t("the folder it lives in as a custom library."),
           );
         }
       } catch (err) {
@@ -124,17 +127,17 @@ export function ManagerPage() {
       }}
     >
       {blocked ? (
-        <PanelSection title="OptiScaler payload">
+        <PanelSection title={t("OptiScaler payload")}>
           <PanelSectionRow>
             {!status?.archive_present ? (
-              <Notice tone="error" title="Bundled release is missing">
-                The plugin was installed without its OptiScaler archive. Reinstall the plugin.
+              <Notice tone="error" title={t("Bundled release is missing")}>
+                {t("The plugin was installed without its OptiScaler archive. Reinstall the plugin.")}
               </Notice>
             ) : (
-              <Notice tone="error" title="No archive tool found">
-                Extracting OptiScaler needs one of <code>7z</code>, <code>7zz</code>,
-                <code> 7za</code>, <code>7zr</code> or <code>bsdtar</code>, none of which are on
-                this system.
+              <Notice tone="error" title={t("No archive tool found")}>
+                {t("Extracting OptiScaler needs one of")} <code>7z</code>, <code>7zz</code>,
+                <code> 7za</code>, <code>7zr</code> {t("or")} <code>bsdtar</code>{t(", none of which are on")}
+                {t(" this system.")}
               </Notice>
             )}
           </PanelSectionRow>
@@ -152,7 +155,7 @@ export function ManagerPage() {
       {resolving ? (
         <PanelSection>
           <PanelSectionRow>
-            <Notice tone="info">Looking up this game's install folder…</Notice>
+            <Notice tone="info">{t("Looking up this game's install folder…")}</Notice>
           </PanelSectionRow>
         </PanelSection>
       ) : null}
@@ -160,7 +163,7 @@ export function ManagerPage() {
       {resolveError ? (
         <PanelSection>
           <PanelSectionRow>
-            <Notice tone="error" title="Could not open this game">
+            <Notice tone="error" title={t("Could not open this game")}>
               {resolveError}
             </Notice>
           </PanelSectionRow>
@@ -183,7 +186,7 @@ export function ManagerPage() {
           tabs={[
             {
               id: "now",
-              title: "Now Playing",
+              title: t("Now Playing"),
               content: (
                 <NowPlaying
                   runningGame={runningGame}
@@ -196,7 +199,7 @@ export function ManagerPage() {
             },
             {
               id: "games",
-              title: "Games",
+              title: t("Games"),
               content: (
                 <GamesList
                   onOpenGame={(game: Game) =>
@@ -205,10 +208,10 @@ export function ManagerPage() {
                 />
               ),
             },
-            { id: "libraries", title: "Libraries", content: <LibraryBrowser /> },
+            { id: "libraries", title: t("Libraries"), content: <LibraryBrowser /> },
             // Plugin-wide, so it belongs here rather than in the Quick Access
             // panel: nothing on it is about the game currently running.
-            { id: "settings", title: "Settings", content: <SettingsTab status={status} /> },
+            { id: "settings", title: t("Settings"), content: <SettingsTab status={status} /> },
           ]}
         />
       )}

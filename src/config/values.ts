@@ -1,5 +1,6 @@
 import type { ConfigValues, OptionMeta } from "../types";
 import { curatedLabel } from "./labels";
+import { t } from "../i18n";
 
 export const AUTO = "auto";
 
@@ -40,7 +41,7 @@ export function optionId(option: OptionMeta): string {
 }
 
 export function labelFor(option: OptionMeta, value: string): string {
-  if (isAuto(value)) return "Auto";
+  if (isAuto(value)) return t("Auto");
   return curatedLabel(optionId(option), value) ?? option.optionLabels?.[value] ?? value;
 }
 

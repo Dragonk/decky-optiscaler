@@ -927,6 +927,23 @@ static_assert(offsetof(hudless_block, NVNGX_ApplicationId) == sizeof(ud_table) +
     ((ptrdiff_t) offsetof(hudless_block, member) -    \
      (ptrdiff_t) offsetof(hudless_block, capturedHudlesses))
 
+// PresentRateMeter from menu/PresentRateMeter.h, inserted into State by the
+// 20261116 nightly to measure the FG output-present cadence. The plugin never
+// reads it -- its own sampling does that job -- so only the size matters, and
+// the members are the same MSVC stand-ins as everywhere else: the mutex is the
+// eight-byte _Mtx_t pointer and the deques are the 80-byte maps.
+struct present_rate_meter_raw {
+    double windowMs;          // const double WindowMs
+    msvc_mutex_raw mutex;     // std::mutex _mutex
+    bool enabled;             // bool _enabled
+    uint64_t presents;        // std::uint64_t _presents
+    double lastPresentMs;     // double _lastPresentMs
+    msvc_deque_raw samples;   // std::deque<Sample> _samples
+    msvc_deque_raw intervals; // std::deque<double> _intervals
+};
+static_assert(sizeof(present_rate_meter_raw) == 200,
+              "the meter is the mutex, the two deques and five scalars");
+
 /**
  * State, from the map this plugin locates by scanning -- changeBackend -- on
  * through everything up to the frame times OptiScaler keeps for its own
@@ -945,7 +962,9 @@ static_assert(offsetof(hudless_block, NVNGX_ApplicationId) == sizeof(ud_table) +
  * frame rate from the presented one. The 20261113 nightly inserts two runs into
  * this stretch -- the ray-reconstruction pair behind the enum, and the Vulkan
  * present-mode trio behind the XeFG war flag -- and both are mirrored, so the
- * intervals stay reachable and the asserts below stay earned.
+ * intervals stay reachable and the asserts below stay earned. The 20261116
+ * nightly inserts one more run behind the DLSSG mode: the count that now
+ * expires, its timestamp, and the output-present cadence meter.
  */
 struct state_tail {
     ud_table changeBackend;
@@ -963,7 +982,9 @@ struct state_tail {
     float xefgDynamicCapFps;
     bool dlssgGameDMFGSupported;
     uint32_t dlssgLastSetMode;  // sl::DLSSGMode, a one-byte enum in a uint32_t slot
-    int32_t dlssgDetectedInterpolationCount;
+    int32_t _dlssgDetectedCount;
+    uint64_t _dlssgDetectedTime;  // steady_clock::time_point; the count above expires after 500 ms
+    present_rate_meter_raw gameFrameRate;  // PresentRateMeter, added by the 20261116 nightly
     bool dlssgInputGameEnabled;
     int32_t dlssgInputGameInterpolationCount;
     bool dlssPresetsOverriddenExternally;
@@ -1019,10 +1040,10 @@ static_assert(offsetof(state_tail, newBackend) == sizeof(ud_table),
               "the enum this plugin already validates must still follow the map");
 static_assert(offsetof(state_tail, rrHandles) == sizeof(ud_table) + 8,
               "the ray-reconstruction set follows the enum, after alignment");
-static_assert(offsetof(state_tail, ffxUpscalerVersionsDx12Names) == 320,
+static_assert(offsetof(state_tail, ffxUpscalerVersionsDx12Names) == 528,
               "unexpected State layout between changeBackend and the FFX lists");
-static_assert(offsetof(state_tail, ffxUpscalerVersionsVkNames) == 368, "unexpected State layout");
-static_assert(offsetof(state_tail, ffxFGVersionNames) == 416, "unexpected State tail layout");
+static_assert(offsetof(state_tail, ffxUpscalerVersionsVkNames) == 576, "unexpected State layout");
+static_assert(offsetof(state_tail, ffxFGVersionNames) == 624, "unexpected State tail layout");
 static_assert(offsetof(state_tail, ffxFGVersionIds) ==
                   offsetof(state_tail, ffxFGVersionNames) + sizeof(msvc_vector_raw),
               "the ids vector is declared straight after the names vector");
@@ -1031,12 +1052,15 @@ static_assert(offsetof(state_tail, ffxUpscalerVersionsDx12Ids) ==
               "the ids vector is declared straight after its names vector");
 static_assert(sizeof(msvc_deque_raw) == 80,
               "MSVC's deque is the map, its size and two four-word iterators");
-// 672: 592 before the 20261113 nightly -- and that was already not the 504
-// the old arithmetic produced, because the shipped build packs this tail
-// tighter and the search met the live pair ("frame intervals found at +592")
-// before the mirror agreed with it. The nightly's ray-reconstruction pair and
-// Vulkan present-mode trio take 80 more bytes between the enum and the lists.
-static_assert(offsetof(state_tail, lastFGFrameTime) == 672, "unexpected State tail layout");
+// 880: 672 before the 20261116 nightly, 592 before the 20261113 one -- and
+// that was already not the 504 the old arithmetic produced, because the
+// shipped build packs this tail tighter and the search met the live pair
+// ("frame intervals found at +592") before the mirror agreed with it. The
+// 20261113 nightly's ray-reconstruction pair and Vulkan present-mode trio
+// took 80 bytes between the enum and the lists, and the 20261116 one inserts
+// the DLSSG expiry timestamp and the 200-byte PresentRateMeter after the
+// enum, moving the lists and the frame intervals 208 bytes further in.
+static_assert(offsetof(state_tail, lastFGFrameTime) == 880, "unexpected State tail layout");
 static_assert(offsetof(state_tail, presentFrameTime) ==
                   offsetof(state_tail, lastFGFrameTime) + sizeof(double),
               "the present interval is declared straight after the rendered one");
@@ -1660,8 +1684,8 @@ static void SampleFps() {
 // presented one whichever slot it came out of -- so all this has to find is the
 // pair.
 
-#define FT_SCAN_FIRST 280   // past the last offset the version lists validate
-#define FT_SCAN_LAST 704    // comfortably past where the pair is declared
+#define FT_SCAN_FIRST 280   // past the meter's own inline doubles; the deques are pointers
+#define FT_SCAN_LAST 1000   // comfortably past where the pair is declared (880 since the 20261116 nightly)
 #define FT_MAX_SLOTS ((FT_SCAN_LAST - FT_SCAN_FIRST) / 8)
 #define FT_MAX_ROUNDS 12
 

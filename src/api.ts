@@ -201,3 +201,7 @@ export const clearLog = callable<[targetDir: string], ActionResult>("clear_log")
 export const setLogging = callable<[targetDir: string, enabled: boolean], ActionResult>(
   "set_logging"
 );
+
+/** The language the Steam client runs in (e.g. "polish"), for UI translations. */
+export const getSteamLanguage = callable<[], { language: string }>("get_steam_language");
+

@@ -38,6 +38,7 @@ import type {
   OptionMeta,
 } from "../types";
 import { Mono, Notice, Pill } from "./Common";
+import { t } from "../i18n";
 
 interface Props {
   values: ConfigValues;
@@ -101,7 +102,7 @@ function ffxVersionOptions(
       fromGame: true,
       options: reported.map((name, index) => ({
         data: String(index),
-        label: `FSR ${name}`,
+        label: t("FSR {0}", [name]),
         version: name,
       })),
     };
@@ -110,7 +111,7 @@ function ffxVersionOptions(
     fromGame: false,
     options: (option?.options ?? []).map((value) => {
       const label =
-        value === "0" && newest ? `FSR ${newest}` : labelFor(option as OptionMeta, value);
+        value === "0" && newest ? t("FSR {0}", [newest]) : labelFor(option as OptionMeta, value);
       return { data: value, label, version: label.replace(/^FSR\s+/i, "") };
     }),
   };
@@ -373,7 +374,7 @@ export function BasicPanel({
     try {
       const result = await switchUpscaler(targetDir, wanted);
       if (result.ok) setPicked(null);
-      else setSwitchError(result.error ?? "Could not switch the upscaler");
+      else setSwitchError(result.error ?? t("Could not switch the upscaler"));
       onLiveChanged?.();
     } catch (error_) {
       setSwitchError(String(error_));
@@ -410,13 +411,13 @@ export function BasicPanel({
     <>
       {/* The method is offered in automatic mode too. The wiki's pair is the
           better *starting* answer — it is what the game can actually feed —
-          but which generator to run is as much the user's call as the
-          upscaler is, so it is a recommendation printed under the control
+          {t("but which generator to run is as much the user's call as the")}{t(" ")}
+          {t("upscaler is, so it is a recommendation printed under the control")}
           rather than the control's replacement. */}
       <PanelSectionRow>
         <ValueDropdown
-          label="Method"
-          description={hint(fgPreset?.description ?? "Choose which frame generator to use.")}
+          label={t("Method")}
+          description={hint(fgPreset?.description ?? t("Choose which frame generator to use."))}
           disabled={busy}
           bottomSeparator={automatic && plannedFg ? "none" : "standard"}
           options={FG_PRESETS.map((preset) => ({ data: preset.id, label: preset.label }))}
@@ -439,10 +440,10 @@ export function BasicPanel({
       {automatic && plannedFg ? (
         <PanelSectionRow>
           <div style={{ padding: "0 0 8px", fontSize: "12px", opacity: 0.85 }}>
-            The wiki recommends{" "}
+            {t("The wiki recommends")}{" "}
             <strong>
               {plannedFg.input === "nofg"
-                ? "no frame generation"
+                ? t("no frame generation")
                 : `${plannedFg.input_label} → ${plannedFg.output_label}`}
             </strong>
             <div style={{ opacity: 0.65, fontSize: "11px" }}>{plannedFg.source}</div>
@@ -450,12 +451,12 @@ export function BasicPanel({
         </PanelSectionRow>
       ) : null}
       {/* The FG input and output are read when the swapchain is created, so
-          unlike the frame-generation toggle this one genuinely cannot apply
+          {t("unlike the frame-generation toggle this one genuinely cannot apply")}
           now — OptiScaler's own overlay says the same when they change. */}
       {methodChanged ? (
         <PanelSectionRow>
-          <Notice tone="warn" title="Restart the game to apply">
-            The frame generation method is chosen when the game starts.
+          <Notice tone="warn" title={t("Restart the game to apply")}>
+            {t("The frame generation method is chosen when the game starts.")}
           </Notice>
         </PanelSectionRow>
       ) : null}
@@ -465,17 +466,14 @@ export function BasicPanel({
   return (
     <>
       {planned ? (
-        <PanelSection title="Settings mode">
+        <PanelSection title={t("Settings mode")}>
           <PanelSectionRow>
             <ToggleField
-              label="Automatic"
+              label={t("Automatic")}
               description={hint(
                 automatic
-                  ? `Set from “${planned.game}” on the OptiScaler wiki. You choose frame ` +
-                    "generation and how it runs, the multiplier and the upscaler; " +
-                    "everything else follows the entry."
-                  : "Let this game's wiki entry set everything except frame generation " +
-                    "and how it runs, the multiplier and the upscaler."
+                  ? t("Set from “{0}” on the OptiScaler wiki. You choose frame generation and how it runs, the multiplier and the upscaler; everything else follows the entry.", [planned.game])
+                  : t("Let this game's wiki entry set everything except frame generation and how it runs, the multiplier and the upscaler.")
               )}
               checked={automatic}
               disabled={busy || !onAutoChange}
@@ -488,7 +486,7 @@ export function BasicPanel({
               <div style={{ padding: "0 0 8px", fontSize: "12px", opacity: 0.8 }}>
                 {planned.settings.length > 0 ? (
                   <>
-                    The wiki sets{" "}
+                    {t("The wiki sets")}{" "}
                     {planned.settings.map((item, index) => (
                       <span key={`${item.section}.${item.key}`}>
                         {index > 0 ? ", " : ""}
@@ -503,15 +501,15 @@ export function BasicPanel({
                         {plannedFg.output_label}
                       </>
                     ) : null}
-                    . Turn this off to get every option back.
+                    {t(". Turn this off to get every option back.")}
                   </>
                 ) : (
                   <>
-                    This entry needs no special OptiScaler settings
+                    {t("This entry needs no special OptiScaler settings")}
                     {plannedFg && plannedFg.input !== "nofg"
-                      ? ` beyond frame generation through ${plannedFg.input_label} → ${plannedFg.output_label}`
+                      ? t(" beyond frame generation through {0} → {1}", [plannedFg.input_label, plannedFg.output_label])
                       : ""}
-                    . Turn this off to get every option back.
+                    {t(". Turn this off to get every option back.")}
                   </>
                 )}
               </div>
@@ -520,14 +518,14 @@ export function BasicPanel({
         </PanelSection>
       ) : null}
 
-      <PanelSection title="Frame Generation">
+      <PanelSection title={t("Frame Generation")}>
         <PanelSectionRow>
           <ToggleField
-            label="Frame generation"
+            label={t("Frame generation")}
             description={hint(
               fgUnavailable
-                ? "The wiki reports no working frame-generation input for this game."
-                : "Inserts generated frames between rendered ones."
+                ? t("The wiki reports no working frame-generation input for this game.")
+                : t("Inserts generated frames between rendered ones.")
             )}
             checked={fgOn}
             disabled={busy || fgUnavailable}
@@ -549,8 +547,8 @@ export function BasicPanel({
                 <span style={{ opacity: 0.75 }}>{live.fps.toFixed(0)} fps</span>
               ) : null}
               {/* Frame generation can only add frames, so a presented rate
-                  well above the rendered one is the evidence it is really
-                  interpolating -- and the same numbers staying equal are the
+                  {t("well above the rendered one is the evidence it is really")}{t(" ")}
+                  {t("interpolating -- and the same numbers staying equal are the")}
                   evidence that it is not, whatever the toggle above says. */}
               {typeof live?.base_fps === "number" &&
               typeof live?.total_fps === "number" &&
@@ -558,16 +556,16 @@ export function BasicPanel({
               live.total_fps > live.base_fps * 1.4 ? (
                 <span style={{ opacity: 0.75 }}>
                   {" "}
-                  · {live.base_fps.toFixed(0)} rendered →{" "}
-                  {live.total_fps.toFixed(0)} presented
+                  · {live.base_fps.toFixed(0)} {t("rendered")} →{" "}
+                  {live.total_fps.toFixed(0)} {t("presented")}
                 </span>
               ) : liveFg && fgArmed ? (
                 <span style={{ opacity: 0.75 }}>
                   {" "}
                   ·{" "}
                   {methodChanged
-                    ? "restart required — the method is chosen when the game starts"
-                    : "armed, but this session generates no frames"}
+                    ? t("restart required — the method is chosen when the game starts")
+                    : t("armed, but this session generates no frames")}
                 </span>
               ) : null}
             </div>
@@ -578,19 +576,19 @@ export function BasicPanel({
 
         {/* Which FidelityFX frame generator the FSR FG output runs — the
             overlay's "FFX FG" combo and its "Change FG" button. Unlike the
-            method above it this one really does change mid-game: OptiScaler
+            {t("method above it this one really does change mid-game: OptiScaler")}
             rebuilds the FG context when both of its change flags are raised,
             which is what the in-game plugin does alongside the write. */}
         {ffxUsable && ffxChoices.options.length > 0 ? (
           <PanelSectionRow>
             <ValueDropdown
-              label="FFX FG version"
+              label={t("FFX FG version")}
               description={hint(
                 ffxFixed
-                  ? "The only frame generator this game's FidelityFX runtime offers."
+                  ? t("The only frame generator this game's FidelityFX runtime offers.")
                   : ffxChoices.fromGame
-                    ? "The frame generators this game's FidelityFX runtime reports."
-                    : "Which FidelityFX frame generator the FSR FG output runs."
+                    ? t("The frame generators this game's FidelityFX runtime reports.")
+                    : t("Which FidelityFX frame generator the FSR FG output runs.")
               )}
               disabled={busy || !fgOn || ffxFixed}
               bottomSeparator={ffxNotLive ? "none" : "standard"}
@@ -599,7 +597,7 @@ export function BasicPanel({
               // The ini can hold an index this game's runtime does not offer —
               // it was set for another game, or by an older release with a
               // different list.
-              describe={(index) => `Generator ${index} (not offered here)`}
+              describe={(index) => t("Generator {0} (not offered here)", [index])}
               onPick={(index) => {
                 setFfxFgChanged(true);
                 onApply(ffxFgChanges(index));
@@ -609,13 +607,13 @@ export function BasicPanel({
         ) : null}
 
         {/* Attached, but the in-game plugin could not find the two flags that
-            make OptiScaler rebuild — so this one is recorded and nothing more.
+            {t("make OptiScaler rebuild — so this one is recorded and nothing more.")}
             Said plainly rather than left to look like it worked. */}
         {ffxNotLive ? (
           <PanelSectionRow>
             <Notice tone="info">
-              Saved. This game's frame generator cannot be rebuilt from here, so it changes
-              when the game restarts.
+              {t("Saved. This game's frame generator cannot be rebuilt from here, so it changes")}{t(" ")}
+              {t("when the game restarts.")}
             </Notice>
           </PanelSectionRow>
         ) : null}
@@ -623,11 +621,11 @@ export function BasicPanel({
         {multiplierOption ? (
           <PanelSectionRow>
             <ValueDropdown
-              label="Frame multiplier"
+              label={t("Frame multiplier")}
               description={
                 multiplierUsable
-                  ? hint("How many frames to present per rendered frame.")
-                  : "Only XeSS Frame Generation can do more than 2X."
+                  ? hint(t("How many frames to present per rendered frame."))
+                  : t("Only XeSS Frame Generation can do more than 2X.")
               }
               disabled={busy || !fgOn || !multiplierUsable}
               bottomSeparator="standard"
@@ -647,24 +645,24 @@ export function BasicPanel({
         ) : null}
 
         {/* Only when there is something to say. The panel used to explain the
-            restart path and OptiScaler's own hotkey here whether or not either
-            was relevant, which is noise on a page for a game that is not even
+            {t("restart path and OptiScaler's own hotkey here whether or not either")}{t(" ")}
+            {t("was relevant, which is noise on a page for a game that is not even")}
             running. */}
         {!compact && live?.attached ? (
           <PanelSectionRow>
-            <Notice tone="success" title="Live control is connected">
-              Frame generation changes as soon as you set it here — no restart, no overlay.
+            <Notice tone="success" title={t("Live control is connected")}>
+              {t("Frame generation changes as soon as you set it here — no restart, no overlay.")}
             </Notice>
           </PanelSectionRow>
         ) : null}
       </PanelSection>
 
-      <PanelSection title="Upscaler">
+      <PanelSection title={t("Upscaler")}>
         <PanelSectionRow>
           <ValueDropdown
-            label="Override upscaler with"
+            label={t("Override upscaler with")}
             description={hint(
-              upscalerPreset?.description ?? "Replaces whichever upscaler the game asks for."
+              upscalerPreset?.description ?? t("Replaces whichever upscaler the game asks for.")
             )}
             disabled={busy}
             bottomSeparator="standard"
@@ -691,18 +689,18 @@ export function BasicPanel({
             2.3.4 to 4.1.1 and OptiScaler names it "FSR 3.X/4" for exactly that
             reason; which one it actually runs is this index, which the overlay
             asks for separately under "FFX Settings" as its "FFX Upscaler"
-            combo. It sits directly under the backend it qualifies, and only
+            {t("combo. It sits directly under the backend it qualifies, and only")}
             when that backend is the FidelityFX one — nothing else reads it. */}
         {ffxUpsUsable && ffxUpsChoices.options.length > 0 ? (
           <PanelSectionRow>
             <ValueDropdown
-              label="FSR version"
+              label={t("FSR version")}
               description={hint(
                 ffxUpsFixed
-                  ? "The only FSR version this game's FidelityFX runtime offers."
+                  ? t("The only FSR version this game's FidelityFX runtime offers.")
                   : ffxUpsChoices.fromGame
-                    ? "The FSR versions this game's FidelityFX runtime reports."
-                    : "Which version of FSR the FidelityFX backend runs."
+                    ? t("The FSR versions this game's FidelityFX runtime reports.")
+                    : t("Which version of FSR the FidelityFX backend runs.")
               )}
               disabled={busy || ffxUpsFixed}
               bottomSeparator={ffxUpsNotLive ? "none" : "standard"}
@@ -711,7 +709,7 @@ export function BasicPanel({
               // The ini can hold an index this game's runtime does not offer —
               // it was set for another game, or written from the list a
               // different FidelityFX build reported.
-              describe={(index) => `Version ${index} (not offered here)`}
+              describe={(index) => t("Version {0} (not offered here)", [index])}
               onPick={(index) => {
                 setFfxUpscalerChanged(true);
                 onApply(
@@ -727,20 +725,20 @@ export function BasicPanel({
         ) : null}
 
         {/* Attached, but nothing to rebuild: the game has not built an upscaler
-            yet, so this was recorded and no more. Said plainly rather than left
+            {t("yet, so this was recorded and no more. Said plainly rather than left")}
             to look as though the version changed. */}
         {ffxUpsNotLive ? (
           <PanelSectionRow>
             <Notice tone="info">
-              Saved. The game has not started upscaling yet, so the version changes as soon
-              as it does.
+              {t("Saved. The game has not started upscaling yet, so the version changes as soon")}
+              {t(" as it does.")}
             </Notice>
           </PanelSectionRow>
         ) : null}
 
         {/* Immediately below the dropdown it belongs to, and only once a
-            different upscaler has been picked: OptiScaler rebuilds the feature
-            when this runs, which costs a frame, so it is not something to offer
+            {t("different upscaler has been picked: OptiScaler rebuilds the feature")}{t(" ")}
+            {t("when this runs, which costs a frame, so it is not something to offer")}
             for its own sake. */}
         {canSwitchNow ? (
           <PanelSectionRow>
@@ -749,7 +747,7 @@ export function BasicPanel({
               disabled={switching}
               onClick={() => void applyUpscalerNow()}
             >
-              {switching ? "Switching…" : "Switch now, without restarting"}
+              {switching ? t("Switching…") : t("Switch now, without restarting")}
             </ButtonItem>
           </PanelSectionRow>
         ) : null}
@@ -758,8 +756,8 @@ export function BasicPanel({
           <PanelSectionRow>
             <Notice tone="info">
               {live?.backend_entries === 0
-                ? "Saved. The game has not started upscaling yet, so there is nothing to switch — it takes effect as soon as it does."
-                : "Saved. It applies when the game restarts."}
+                ? t("Saved. The game has not started upscaling yet, so there is nothing to switch — it takes effect as soon as it does.")
+                : t("Saved. It applies when the game restarts.")}
             </Notice>
           </PanelSectionRow>
         ) : null}
@@ -772,40 +770,39 @@ export function BasicPanel({
 
         {int8Selected ? (
           <PanelSectionRow>
-            <Notice tone="info" title="FSR 4 Lite for the next launch">
-              INT8 Lite comes from the bundled Vulkan driver DLL (amdvkffx64), so there is
-              nothing to download. Check the game's watermark for FSR4; plain FSR3 means the
-              driver fell back. Frame generation is configured separately.
+            <Notice tone="info" title={t("FSR 4 Lite for the next launch")}>
+              {t("INT8 Lite comes from the bundled Vulkan driver DLL (amdvkffx64), so there is")}{t(" ")}{t("nothing to download. Check the game's watermark for FSR4; plain FSR3 means the")}{t(" ")}
+              {t("driver fell back. Frame generation is configured separately.")}
             </Notice>
           </PanelSectionRow>
         ) : needsInt8 || ffxUpsNeedsInt8 ? (
           <PanelSectionRow>
-            <Notice tone="info" title="FSR 4 on Steam Deck">
-              Select FSR 4 Lite — Steam Deck to force the INT8 Lite model.
+            <Notice tone="info" title={t("FSR 4 on Steam Deck")}>
+              {t("Select FSR 4 Lite — Steam Deck to force the INT8 Lite model.")}
             </Notice>
           </PanelSectionRow>
         ) : fsr4Selected && !compact ? (
           <PanelSectionRow>
-            <Notice tone="info" title="FSR 4 selected">
-              Uses OptiScaler's FidelityFX backend with its own GPU detection. OptiScaler only
-              picks FSR 4 by itself on RDNA 3 and RDNA 4, which is why choosing it here also
-              sets the FSR backend explicitly.
+            <Notice tone="info" title={t("FSR 4 selected")}>
+              {t("Uses OptiScaler's FidelityFX backend with its own GPU detection. OptiScaler only")}{t(" ")}
+              {t("picks FSR 4 by itself on RDNA 3 and RDNA 4, which is why choosing it here also")}{t(" ")}
+              {t("sets the FSR backend explicitly.")}
             </Notice>
           </PanelSectionRow>
         ) : null}
       </PanelSection>
 
       {/* Each watermark belongs to the thing that prints it: the FSR 4 badge
-          to the FidelityFX upscaler, the FG badge to generated frames -- so
+          {t("to the FidelityFX upscaler, the FG badge to generated frames -- so")}
           each toggle appears only while that thing is configured to run. */}
       {ffxUpsUsable || fgOn ? (
-        <PanelSection title="Watermarks">
+        <PanelSection title={t("Watermarks")}>
           {ffxUpsUsable && fsr4WatermarkOption ? (
             <PanelSectionRow>
               <ToggleField
-                label="FSR 4 watermark"
+                label={t("FSR 4 watermark")}
                 description={hint(
-                  "Print the running FSR 4 model in the corner of the frame."
+                  t("Print the running FSR 4 model in the corner of the frame.")
                 )}
                 checked={asBool(effectiveValue(values, fsr4WatermarkOption))}
                 disabled={busy}
@@ -825,9 +822,9 @@ export function BasicPanel({
           {fgOn && fgWatermarkOption ? (
             <PanelSectionRow>
               <ToggleField
-                label="Frame generation watermark"
+                label={t("Frame generation watermark")}
                 description={hint(
-                  "Print the FSR-FG badge on generated frames."
+                  t("Print the FSR-FG badge on generated frames.")
                 )}
                 checked={asBool(effectiveValue(values, fgWatermarkOption))}
                 disabled={busy}
@@ -850,7 +847,7 @@ export function BasicPanel({
       {/* Last, and only in the Quick Access panel: everything above it takes
           effect in the running game, and this does not. */}
       {compact ? (
-        <PanelSection title="Needs a restart">{methodControls}</PanelSection>
+        <PanelSection title={t("Needs a restart")}>{methodControls}</PanelSection>
       ) : null}
     </>
   );

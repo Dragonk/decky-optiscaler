@@ -3,12 +3,12 @@
 OPTISCALER_VERSION = "10.0.0-pre1"
 # The OptiScaler build the live-control memory mirror is generated against;
 # a game running any other build loads the plugin but cannot attach.
-LIVE_CONTROL_COMMIT = "5f69a25d"
+LIVE_CONTROL_COMMIT = "1e568bb3"
 PAYLOAD_ARCHIVE = "OptiScaler-10.0.0-pre1.7z"
 # The nightly build of 2026-11-13, pinned by hash: same version tag, newer
 # tree, FidelityFX SDK 4.1.2 with the INT8/INT8 Lite models. CI fetches it.
-PAYLOAD_URL = "https://github.com/optiscaler/OptiScaler-nightly/releases/download/nightly-20261113/OptiScaler_v10.0.0-pre1_20261113.7z"
-PAYLOAD_SHA256 = "97e494a65de55b725e74b358f1dc7fe67413a1f90ac1084b0f6be17e9b140b1c"
+PAYLOAD_URL = "https://github.com/optiscaler/OptiScaler-nightly/releases/download/nightly-20261116/OptiScaler_v10.0.0-pre1_20261116.7z"
+PAYLOAD_SHA256 = "6cd5704b47ff883666df7fec80ce55d113ecc1097a1db5caa3a1058bc007c2d0"
 
 INI_NAME = "OptiScaler.ini"
 LOG_NAME = "OptiScaler.log"

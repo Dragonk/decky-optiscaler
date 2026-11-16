@@ -2282,6 +2282,12 @@ def check_asi_state_layout():
          "the mutex the 20261113 nightly pairs the captured-hudless table with"),
         ("ankerl::unordered_dense::set<unsigned int> rrHandles;",
          "the ray-reconstruction handle set the enum's run mirrors"),
+        ("int _dlssgDetectedCount = 0;",
+         "the DLSSG count that now expires instead of sticking"),
+        ("std::chrono::steady_clock::time_point _dlssgDetectedTime {};",
+         "the timestamp that expires it"),
+        ("PresentRateMeter gameFrameRate { 500.0 };",
+         "the output-present cadence meter the 20261116 nightly adds"),
     ):
         check(f"State still declares {why}", text in state_h, text)
 
@@ -2300,12 +2306,14 @@ def check_asi_state_layout():
          "the value that confirms the table"),
         ("offsetof(state_new_backend, xessDebugFrames) == 76",
          "where the debug defaults sit past the ray-reconstruction set"),
-        ("offsetof(state_tail, ffxFGVersionNames) == 416", "where the FFX FG list sits"),
-        ("offsetof(state_tail, ffxUpscalerVersionsDx12Names) == 320",
+        ("offsetof(state_tail, ffxFGVersionNames) == 624", "where the FFX FG list sits"),
+        ("offsetof(state_tail, ffxUpscalerVersionsDx12Names) == 528",
          "where the Dx12 FSR version list sits"),
-        ("offsetof(state_tail, ffxUpscalerVersionsVkNames) == 368",
+        ("offsetof(state_tail, ffxUpscalerVersionsVkNames) == 576",
          "where the Vulkan FSR version list sits"),
-        ("offsetof(state_tail, lastFGFrameTime) == 672", "where the frame intervals sit"),
+        ("offsetof(state_tail, lastFGFrameTime) == 880", "where the frame intervals sit"),
+        ("sizeof(present_rate_meter_raw) == 200",
+         "the width of the output-resent cadence meter the 20261116 nightly adds"),
         ("sizeof(msvc_deque_raw) == 80", "the width of the deques the tail steps over"),
         ("sizeof(hudless_entry) == 24", "the stride the table's elements are checked at"),
     ) :
@@ -3301,6 +3309,71 @@ def check_option_validation():
         check(f"every key the {name} preset writes is accepted", not bad, bad)
 
 
+def check_ui_language():
+    """The UI follows the language the Steam client runs in, and every
+    frontend string is either translated into Polish or deliberately left
+    as the English source."""
+    print("\nUI language")
+    from optiscaler import steam as steam_mod
+
+    home = Path(tempfile.mkdtemp())
+    real = home / ".local/share/Steam"
+    (real / "steamapps").mkdir(parents=True)
+    (home / ".steam").mkdir()
+    (home / ".steam/steam").symlink_to(real, target_is_directory=True)
+    registry = ('"registry"\n{\n\t"HKCU"\n\t{\n\t\t"Software"\n\t\t{\n'
+                '\t\t\t"Valve"\n\t\t\t{\n\t\t\t\t"Steam"\n\t\t\t\t{\n'
+                '\t\t\t\t\t"language"  "%s"\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n}\n')
+    (real / "registry.vdf").write_text(registry % "polish", encoding="utf-8")
+    check("registry.vdf tells the UI the Steam client is Polish",
+          steam_mod.steam_language(home) == "polish")
+    (real / "registry.vdf").write_text(registry % "english", encoding="utf-8")
+    check("and english stays english",
+          steam_mod.steam_language(home) == "english")
+    (real / "registry.vdf").write_text('"registry"\n{\n}\n', encoding="utf-8")
+    localconfig = real / "userdata/7/config/localconfig.vdf"
+    localconfig.parent.mkdir(parents=True)
+    localconfig.write_text(
+        '"UserLocalConfigStore"\n{\n\t"software"\n\t{\n\t\t"valve"\n\t\t{\n'
+        '\t\t\t"steam"\n\t\t\t{\n\t\t\t\t"language"  "polish"\n\t\t\t}\n\t\t}\n\t}\n}\n',
+        encoding="utf-8")
+    check("without a machine language the newest account speaks instead",
+          steam_mod.steam_language(home) == "polish")
+    bare = Path(tempfile.mkdtemp())
+    (bare / ".local/share/Steam/steamapps").mkdir(parents=True)
+    check("and a Steam that never chose is english",
+          steam_mod.steam_language(bare) == "english")
+
+    # Frontend: every t() key is translated or deliberately English.
+    skip = {
+        " ", " {0}", ".asi", "Auto", "Auto ({0})", "Build {0}", "Build: {0}.",
+        "FSR 2.2.1", "FSR 3.X", "FSR 4", "FSR 4 Lite — Steam Deck",
+        "FSR 4.1.1b — Steam Deck", "FSR FG", "FSR {0}", "GPU", "OptiPatcher",
+        "Upscaler", "Upscaler (FSR FG)", "format {0}", "fps", "live",
+        "nightly build", "upscaler", "{0} ({1})",
+    }
+    used = set()
+    for path in (ROOT / "src").rglob("*.ts*"):
+        if ".test." in path.name or path.name == "i18n.ts":
+            continue
+        text = re.sub(r"/\*.*?\*/", "", path.read_text(encoding="utf-8"), flags=re.S)
+        for m in re.finditer(r'(?<![A-Za-z_.])t\(\s*"((?:[^"\\]|\\.)*)"', text):
+            used.add(m.group(1).replace('\\"', '"'))
+    i18n = (ROOT / "src/i18n.ts").read_text(encoding="utf-8")
+    translated = set()
+    for m in re.finditer(r'^  "((?:[^"\\]|\\.)*)": ', i18n, re.M):
+        translated.add(m.group(1).replace('\\"', '"'))
+    missing = sorted(k for k in used - translated if k not in skip)
+    check("every UI string the frontend can ask for is translated",
+          not missing, missing[:3])
+    stray = sorted(translated - used)
+    check("and nothing in the dictionary goes unused", not stray, stray[:3])
+    test_leak = False
+    for path in (ROOT / "src").rglob("*.test.*"):
+        if re.search(r'(?<![A-Za-z_.])t\(\s*"', path.read_text(encoding="utf-8")):
+            test_leak = True
+    check("tests stay out of the dictionary", not test_leak)
+
 def main():
     logging.basicConfig(level=logging.ERROR)
     asyncio.run(run())
@@ -3333,6 +3406,7 @@ def main():
     check_compat_list_shapes()
     check_option_validation()
     check_library_labels()
+    check_ui_language()
     print(f"\n{len(PASSED)} passed, {len(FAILED)} failed")
     if FAILED:
         for name in FAILED:

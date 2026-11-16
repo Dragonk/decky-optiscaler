@@ -4,6 +4,7 @@ import { AUTO } from "../config/values";
 import { optionsInSection } from "../config/tabs";
 import { forgetWrites, overlayWrites, rememberWrites } from "../config/writeRecord";
 import type { ConfigValues, LiveApplyResult, OptionChange, OptionMeta } from "../types";
+import { t } from "../i18n";
 
 const FLUSH_DELAY_MS = 400;
 
@@ -81,7 +82,7 @@ export function useConfig(targetDir: string | null, enabled: boolean, reloadKey?
         seen.current = targetDir;
         setValues(overlay(result.values));
       } else {
-        setError(result.error ?? "Could not read OptiScaler.ini");
+        setError(result.error ?? t("Could not read OptiScaler.ini"));
         setValues({});
       }
     } catch (exc) {
@@ -103,7 +104,7 @@ export function useConfig(targetDir: string | null, enabled: boolean, reloadKey?
     setSaving(true);
     try {
       const result = await writeConfig(targetDir, changes);
-      if (!result.ok) setError(result.error ?? "Write failed");
+      if (!result.ok) setError(result.error ?? t("Write failed"));
 
       // A change the running game already adopted needs no restart, so only
       // raise the restart flag for the parts that could not be applied live.
@@ -124,9 +125,9 @@ export function useConfig(targetDir: string | null, enabled: boolean, reloadKey?
         // saying why has to come after it.
         await load();
         setError(
-          `OptiScaler would not accept ${rejected
-            .map((change) => `${change.key}=${change.value}`)
-            .join(", ")}`
+          t("OptiScaler would not accept {0}", [rejected
+                      .map((change) => `${change.key}=${change.value}`)
+                      .join(", ")])
         );
       }
     } catch (exc) {
@@ -193,7 +194,7 @@ export function useConfig(targetDir: string | null, enabled: boolean, reloadKey?
   );
 
   const enableFsr4 = useCallback(async () => {
-    if (!targetDir) throw new Error("Install OptiScaler first.");
+    if (!targetDir) throw new Error(t("Install OptiScaler first."));
     setSaving(true);
     try {
       // Finish queued edits before the backend changes the preset as one operation.
@@ -201,7 +202,7 @@ export function useConfig(targetDir: string | null, enabled: boolean, reloadKey?
       await flush();
       setSaving(true);
       const result = await setFsr4Build(targetDir, "4.1.1b");
-      if (!result.ok) throw new Error(result.error ?? "Could not enable FSR 4.1.1b");
+      if (!result.ok) throw new Error(result.error ?? t("Could not enable FSR 4.1.1b"));
       forgetWrites(targetDir);
       await load();
       setDirty(true);

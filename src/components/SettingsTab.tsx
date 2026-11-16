@@ -16,12 +16,13 @@ import {
 } from "../prefs";
 import type { PayloadStatus, WikiStatus } from "../types";
 import { Centered, KeyValue, Mono, Notice, Pill } from "./Common";
+import { lang, plural, t } from "../i18n";
 
 /** How old the list is, in the terms someone would actually ask it in. */
 function describeAge(age: number | null): string {
-  if (age === null) return "at an unknown time";
+  if (age === null) return t("at an unknown time");
   const hours = age / 3600;
-  if (hours < 1) return "in the last hour";
+  if (hours < 1) return t("in the last hour");
   if (hours < 48) return `${Math.round(hours)} hours ago`;
   return `${Math.round(hours / 24)} days ago`;
 }
@@ -89,13 +90,13 @@ export function SettingsTab({ status }: Readonly<{ status: PayloadStatus | null 
       const result = await refreshWiki();
       setWiki(await getWikiStatus(false));
       toaster.toast({
-        title: result.count > 0 ? "Compatibility list downloaded" : "Still could not download it",
+        title: result.count > 0 ? t("Compatibility list downloaded") : t("Still could not download it"),
         body: result.count > 0
-          ? `${result.count} entries.`
-          : String(result.meta?.error ?? "The wiki could not be reached."),
+                  ? `${result.count} ${lang() === "pl" ? plural(result.count, "wpis", "wpisy", "wpisów") : result.count === 1 ? "entry" : "entries"}`
+          : String(result.meta?.error ?? t("The wiki could not be reached.")),
       });
     } catch (exc) {
-      toaster.toast({ title: "Still could not download it", body: String(exc) });
+      toaster.toast({ title: t("Still could not download it"), body: String(exc) });
     } finally {
       setRefreshing(false);
     }
@@ -111,20 +112,20 @@ export function SettingsTab({ status }: Readonly<{ status: PayloadStatus | null 
     }
   };
 
-  if (remembering === null) return <Centered>Reading settings…</Centered>;
+  if (remembering === null) return <Centered>{t("Reading settings…")}</Centered>;
 
   const stored = REMEMBERED_QUESTIONS.filter((question) => question.key in answers);
 
   return (
     <>
-      <PanelSection title="Remembered answers">
+      <PanelSection title={t("Remembered answers")}>
         <PanelSectionRow>
           <ToggleField
-            label="Remember my choices"
+            label={t("Remember my choices")}
             description={
               remembering
-                ? "Prompts that offer “Remember my choice” can store the answer and stop asking."
-                : "Every prompt asks again, and nothing is stored."
+                ? t("Prompts that offer “Remember my choice” can store the answer and stop asking.")
+                : t("Every prompt asks again, and nothing is stored.")
             }
             checked={remembering}
             disabled={busy}
@@ -137,8 +138,8 @@ export function SettingsTab({ status }: Readonly<{ status: PayloadStatus | null 
           <PanelSectionRow>
             <Notice tone="info">
               {remembering
-                ? "Nothing is remembered yet. The launch-options prompts are the ones that offer it."
-                : "Turning this off also cleared the answers that were stored."}
+                ? t("Nothing is remembered yet. The launch-options prompts are the ones that offer it.")
+                : t("Turning this off also cleared the answers that were stored.")}
             </Notice>
           </PanelSectionRow>
         ) : (
@@ -155,36 +156,36 @@ export function SettingsTab({ status }: Readonly<{ status: PayloadStatus | null 
                 childrenContainerWidth="min"
                 {...({ "data-forget": question.key } as Record<string, string>)}
               >
-                <Pill>ask me again</Pill>
+                <Pill>{t("ask me again")}</Pill>
               </Field>
             </PanelSectionRow>
           ))
         )}
       </PanelSection>
 
-      <PanelSection title="Compatibility list">
+      <PanelSection title={t("Compatibility list")}>
         <PanelSectionRow>
           {wiki === null ? (
-            <Notice tone="info">Checking the OptiScaler wiki…</Notice>
+            <Notice tone="info">{t("Checking the OptiScaler wiki…")}</Notice>
           ) : wiki.available ? (
             // Available and *current* are different questions now that answers
             // come from cache: a list can be perfectly usable and months old,
             // and a refresh can be failing behind it without anything breaking.
             <Notice
               tone={wiki.error ? "warn" : "success"}
-              title={`${wiki.entry_count} games on the list`}
+              title={lang() === "pl" ? `${wiki.entry_count} ${plural(wiki.entry_count, "gra", "gry", "gier")} na liście` : t("{0} games on the list", [wiki.entry_count])}
             >
               {wiki.source === "bundled"
-                ? "The copy bundled with the plugin — this Deck has not downloaded one yet."
-                : `Downloaded ${describeAge(wiki.age)}.`}
+                ? t("The copy bundled with the plugin — this Deck has not downloaded one yet.")
+                : t("Downloaded {0}.", [describeAge(wiki.age)])}
               {wiki.error ? (
                 <>
                   {" "}
-                  The last refresh did not go through, so this list is what is being used
-                  meanwhile. <Mono>{wiki.error}</Mono>
+                  {t("The last refresh did not go through, so this list is what is being used")}{t(" ")}
+                  {t("meanwhile.")} <Mono>{wiki.error}</Mono>
                 </>
               ) : wiki.revalidating ? (
-                " Checking for a newer one now."
+                t(" Checking for a newer one now.")
               ) : (
                 ""
               )}
@@ -193,9 +194,9 @@ export function SettingsTab({ status }: Readonly<{ status: PayloadStatus | null 
             // The sentence the rest of the plugin could never show: when the
             // list will not download, every game reads as "not in the list",
             // and without the actual error there is nothing to act on.
-            <Notice tone="error" title="The compatibility list could not be downloaded">
-              Automatic setup needs this list, so without it every game looks as though it has
-              no wiki entry. {wiki.error ? <Mono>{wiki.error}</Mono> : null}
+            <Notice tone="error" title={t("The compatibility list could not be downloaded")}>
+              {t("Automatic setup needs this list, so without it every game looks as though it has")}
+              {t(" no wiki entry.")} {wiki.error ? <Mono>{wiki.error}</Mono> : null}
             </Notice>
           )}
         </PanelSectionRow>
@@ -205,21 +206,21 @@ export function SettingsTab({ status }: Readonly<{ status: PayloadStatus | null 
             disabled={refreshing}
             onClick={() => void refresh()}
           >
-            {refreshing ? "Downloading…" : "Download it again"}
+            {refreshing ? t("Downloading…") : t("Download it again")}
           </ButtonItem>
         </PanelSectionRow>
         {wiki && (!wiki.available || wiki.error) ? (
           <PanelSectionRow>
             <Field bottomSeparator="none" focusable>
               <div style={{ width: "100%" }}>
-                <KeyValue label="Address" value={<Mono>{wiki.url}</Mono>} />
-                <KeyValue label="Certificates" value={wiki.tls ?? "none worked"} />
+                <KeyValue label={t("Address")} value={<Mono>{wiki.url}</Mono>} />
+                <KeyValue label={t("Certificates")} value={wiki.tls ?? t("none worked")} />
                 <KeyValue
-                  label="Last tried"
+                  label={t("Last tried")}
                   value={
                     wiki.last_attempt
                       ? new Date(wiki.last_attempt * 1000).toLocaleString()
-                      : "not yet"
+                      : t("not yet")
                   }
                 />
               </div>
@@ -228,22 +229,22 @@ export function SettingsTab({ status }: Readonly<{ status: PayloadStatus | null 
         ) : null}
       </PanelSection>
 
-      <PanelSection title="About">
+      <PanelSection title={t("About")}>
         <PanelSectionRow>
           <Field bottomSeparator="none" focusable>
             <div style={{ width: "100%" }}>
-              <KeyValue label="Bundled OptiScaler" value={status?.optiscaler_version ?? "—"} />
+              <KeyValue label={t("Bundled OptiScaler")} value={status?.optiscaler_version ?? "—"} />
               <KeyValue
-                label="Release payload"
+                label={t("Release payload")}
                 value={
                   !status?.archive_present
-                    ? "missing"
+                    ? t("missing")
                     : status.extracted
-                      ? "unpacked"
-                      : "not unpacked yet"
+                      ? t("unpacked")
+                      : t("not unpacked yet")
                 }
               />
-              <KeyValue label="Default proxy" value={status?.default_proxy ?? "—"} />
+              <KeyValue label={t("Default proxy")} value={status?.default_proxy ?? "—"} />
             </div>
           </Field>
         </PanelSectionRow>

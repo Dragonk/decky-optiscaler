@@ -1,6 +1,7 @@
 import { DialogButton, Focusable } from "@decky/ui";
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { t } from "../i18n";
 
 export interface StripTab {
   id: string;
@@ -80,7 +81,7 @@ export function TabStrip({
             key={tab.id}
             {...marker(markerName, tab.id, selected)}
             onClick={() => onChange(tab.id)}
-            onOKActionDescription={`Show ${tab.title}`}
+            onOKActionDescription={t("Show {0}", [tab.title])}
             {...focusHandlers(
               () => setFocus(tab.id),
               () => setFocus((current) => (current === tab.id ? null : current))

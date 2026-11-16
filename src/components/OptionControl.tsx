@@ -11,6 +11,8 @@ import {
   rawValue,
 } from "../config/values";
 
+import { t } from "../i18n";
+
 interface Props {
   option: OptionMeta;
   values: ConfigValues;
@@ -28,7 +30,7 @@ function describe(option: OptionMeta, values: ConfigValues) {
   const parts: string[] = [];
   if (option.description) parts.push(option.description);
   if (raw.toLowerCase() === AUTO) {
-    parts.push(`Auto — OptiScaler uses ${option.default}.`);
+    parts.push(t("Auto — OptiScaler uses {0}.", [option.default]));
   }
   return parts.join(" ");
 }
@@ -73,7 +75,7 @@ export function OptionControl({ option, values, onChange, disabled }: Props) {
           data: choice,
           label:
             choice === AUTO
-              ? `Auto (${labelFor(option, option.default)})`
+              ? t("Auto ({0})", [labelFor(option, option.default)])
               : labelFor(option, choice),
         }))}
         selectedOption={selected}

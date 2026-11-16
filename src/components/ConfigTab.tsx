@@ -5,6 +5,7 @@ import { countOverrides, optionId } from "../config/values";
 import type { ConfigValues, OptionMeta } from "../types";
 import { Notice } from "./Common";
 import { OptionControl } from "./OptionControl";
+import { lang, plural, t } from "../i18n";
 
 interface Props {
   tabId: string;
@@ -40,7 +41,7 @@ export function ConfigTab({
       ) : null}
 
       {featured.length > 0 ? (
-        <PanelSection title="Main Settings">
+        <PanelSection title={t("Main Settings")}>
           {featured.map((option) => (
             <PanelSectionRow key={optionId(option)}>
               <OptionControl
@@ -94,15 +95,18 @@ function CollapsibleSection({
   if (options.length === 0) return null;
 
   const overrides = countOverrides(values, all);
-  const summary = `${options.length} option${options.length === 1 ? "" : "s"}${
-    overrides > 0 ? ` · ${overrides} changed` : ""
-  }`;
+  const summary =
+    lang() === "pl"
+      ? `${options.length} ${plural(options.length, "opcja", "opcje", "opcji")}` +
+        (overrides > 0 ? ` · ${overrides} ${plural(overrides, "zmieniona", "zmienione", "zmienionych")}` : "")
+      : `${options.length} option${options.length === 1 ? "" : "s"}` +
+        (overrides > 0 ? ` · ${overrides} changed` : "");
 
   return (
     <PanelSection title={sectionTitle(section)}>
       <PanelSectionRow>
         <ButtonItem layout="below" onClick={() => setOpen((value) => !value)}>
-          {open ? `Hide ${summary}` : `Show ${summary}`}
+          {open ? t("Hide {0}", [summary]) : t("Show {0}", [summary])}
         </ButtonItem>
       </PanelSectionRow>
       {open ? (
@@ -124,7 +128,7 @@ function CollapsibleSection({
                 disabled={disabled}
                 onClick={() => onResetSection(section)}
               >
-                Reset this section to auto
+                {t("Reset this section to auto")}
               </ButtonItem>
             </PanelSectionRow>
           ) : null}

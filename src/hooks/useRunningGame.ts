@@ -1,6 +1,7 @@
 import { Router } from "@decky/ui";
 import { useEffect, useState } from "react";
 import type { RunningGame } from "../types";
+import { t } from "../i18n";
 
 const POLL_MS = 4000;
 
@@ -10,7 +11,7 @@ function fromOverview(overview: unknown): RunningGame | null {
   if (typeof app.appid !== "number") return null;
   return {
     appid: app.appid,
-    name: app.display_name || `App ${app.appid}`,
+    name: app.display_name || t("App {0}", [app.appid]),
     gameid: app.gameid || String(app.appid),
   };
 }
@@ -30,7 +31,7 @@ function describeAppId(appid: number): RunningGame {
   } catch {
     /* non-Steam shortcuts have no overview */
   }
-  return { appid, name: `App ${appid}`, gameid: String(appid) };
+  return { appid, name: t("App {0}", [appid]), gameid: String(appid) };
 }
 
 /**

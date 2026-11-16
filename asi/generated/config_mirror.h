@@ -355,7 +355,6 @@ struct Config
     CustomOptional<bool> ReprojectionThirdPersonDetection;
     CustomOptional<uint32_t> NvngxFGDispatchFlags;
     CustomOptional<bool> NvngxFGShowDebug;
-    CustomOptional<bool> NvngxFGDisableHudless;
     CustomOptional<bool> UseFakenvapi;
     CustomOptional<bool> ForceXeLL;
     CustomOptional<bool> FN_ForceLatencyFlex;
@@ -739,7 +738,6 @@ struct Config
     X(ReprojectionThirdPersonDetection, bool, OPTI_BOOL) \
     X(NvngxFGDispatchFlags, uint32_t, OPTI_U32) \
     X(NvngxFGShowDebug, bool, OPTI_BOOL) \
-    X(NvngxFGDisableHudless, bool, OPTI_BOOL) \
     X(UseFakenvapi, bool, OPTI_BOOL) \
     X(ForceXeLL, bool, OPTI_BOOL) \
     X(FN_ForceLatencyFlex, bool, OPTI_BOOL) \

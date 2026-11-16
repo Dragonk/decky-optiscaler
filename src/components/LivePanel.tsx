@@ -4,6 +4,7 @@ import { getLiveLog, installLive, probeChainViews } from "../api";
 import { liveFrameRates } from "../config/basic";
 import type { ChainViewProbe, LiveStatus } from "../types";
 import { KeyValue, Mono, Notice } from "./Common";
+import { t } from "../i18n";
 
 interface Props {
   targetDir: string;
@@ -54,9 +55,9 @@ async function copyText(text: string): Promise<void> {
  */
 function upscalerBlockedReason(status: LiveStatus) {
   if (status.backend_entries === 0) {
-    return "Upscaler switching turns on once the game has drawn its first upscaled frame.";
+    return t("Upscaler switching turns on once the game has drawn its first upscaled frame.");
   }
-  return "Upscaler switching is unavailable: OptiScaler's backend list could not be read.";
+  return t("Upscaler switching is unavailable: OptiScaler's backend list could not be read.");
 }
 
 /**
@@ -79,39 +80,38 @@ function Measurements({ status }: Readonly<{ status: LiveStatus }>) {
   return (
     <PanelSectionRow>
       <div style={{ padding: "2px 0" }}>
-        <KeyValue label="Presented" value={fps(status.total_fps)} />
-        <KeyValue label="Rendered" value={fps(status.base_fps)} />
+        <KeyValue label={t("Presented")} value={fps(status.total_fps)} />
+        <KeyValue label={t("Rendered")} value={fps(status.base_fps)} />
         {/* The raw slots, named after where in State they came from rather than
-            after a role: which one is the presented interval is decided from
-            the numbers above, and seeing both is how a slot that was never
+            {t("after a role: which one is the presented interval is decided from")}{t(" ")}
+            {t("the numbers above, and seeing both is how a slot that was never")}
             written tells itself apart from a generator that is idle. */}
         <KeyValue
-          label="Intervals"
-          value={`${ms(status.presented_ms)} present · ${ms(status.rendered_ms)} fg · ${fps(status.fps)} counted`}
+          label={t("Intervals")}
+          value={t("{0} present · {1} fg · {2} counted", [ms(status.presented_ms), ms(status.rendered_ms), fps(status.fps)])}
         />
         {/* Which build of the in-game plugin produced the line above. An older
-            one does not report the intervals at all, and the two rates are then
-            missing for a reason that has nothing to do with how they are
-            derived — so the version belongs next to the numbers, not somewhere
+            {t("one does not report the intervals at all, and the two rates are then")}{t(" ")}
+            {t("missing for a reason that has nothing to do with how they are")}{t(" ")}
+            {t("derived — so the version belongs next to the numbers, not somewhere")}
             else on the page. */}
         <KeyValue
-          label="In-game plugin"
+          label={t("In-game plugin")}
           value={
             status.schema === null || status.schema === undefined
-              ? "did not report a version"
-              : `format ${status.schema}${
-                  status.asi_current === false
-                    ? " · older than the one shipped here"
-                    : status.asi_current
-                      ? " · current"
-                      : ""
-                }`
+              ? t("did not report a version")
+              : t("format {0}", [status.schema]) +
+                (status.asi_current === false
+                  ? t(" · older than the one shipped here")
+                  : status.asi_current
+                    ? t(" · current")
+                    : "")
           }
         />
         {rates && !rates.generating ? (
           <KeyValue
-            label="Frame generation"
-            value="on, but no frames are being generated"
+            label={t("Frame generation")}
+            value={t("on, but no frames are being generated")}
           />
         ) : null}
       </div>
@@ -133,9 +133,9 @@ function XodusProbeResult({ probe }: Readonly<{ probe: ChainViewProbe }>) {
   if (probe.views.length === 0) {
     return (
       <div>
-        No chain views found. A view exists only while its game is running;
-        with none, the game starts straight from its own folder and a
-        dxgi.dll installed there loads from it.
+        {t("No chain views found. A view exists only while its game is running; ")}
+        {t("with none, the game starts straight from its own folder and a")}{t(" ")}
+        {t("dxgi.dll installed there loads from it.")}
       </div>
     );
   }
@@ -156,18 +156,18 @@ function XodusProbeResult({ probe }: Readonly<{ probe: ChainViewProbe }>) {
           <div key={view.path} style={{ marginBottom: "4px" }}>
             <Mono>{view.name}</Mono>:{" "}
             {found.length === 0
-              ? "none of OptiScaler's files -- the game cannot load OptiScaler from this view"
+              ? t("none of OptiScaler's files -- the game cannot load OptiScaler from this view")
               : carries}
             {view.inside !== view.path ? (
               <div style={{ marginTop: "2px" }}>
-                game folder inside the view: <Mono>{view.inside}</Mono>
+                {t("game folder inside the view:")} <Mono>{view.inside}</Mono>
               </div>
             ) : null}
           </div>
         );
       })}
       {Object.values(probe.game_markers).every((state) => state === null) ? (
-        <div>No OptiScaler files in the game folder either -- install first.</div>
+        <div>{t("No OptiScaler files in the game folder either -- install first.")}</div>
       ) : null}
     </div>
   );
@@ -186,89 +186,89 @@ export function LivePanel({ targetDir, status, onChanged }: Props) {
   // point of reporting them separately is that "not connected" on its own tells
   // the user nothing about what to do next.
   const chain = status.attached ? null : !status.asi_available ? (
-    <Notice tone="warn" title="Not included in this build">
-      This copy of the plugin was packaged without the live-control module, so every setting
-      needs a game restart.
+    <Notice tone="warn" title={t("Not included in this build")}>
+      {t("This copy of the plugin was packaged without the live-control module, so every setting")}{t(" ")}
+      {t("needs a game restart.")}
     </Notice>
   ) : !status.asi_installed ? (
-    <Notice tone="info" title="Not installed for this game">
-      Add it below to change frame generation and the upscaler without restarting.
+    <Notice tone="info" title={t("Not installed for this game")}>
+      {t("Add it below to change frame generation and the upscaler without restarting.")}
     </Notice>
   ) : status.load_enabled === false ? (
-    <Notice tone="warn" title="OptiScaler is not set to load plugins">
-      <b>LoadAsiPlugins</b> is off in OptiScaler.ini, and it defaults to off — so the plugin
-      is installed but never loaded. Use <b>Add live control</b> below to switch it on.
+    <Notice tone="warn" title={t("OptiScaler is not set to load plugins")}>
+      <b>LoadAsiPlugins</b>{t(" is off in OptiScaler.ini, and it defaults to off — so the plugin")}{t(" ")}
+      {t("is installed but never loaded. Use")} <b>{t("Add live control")}</b>{t(" below to switch it on.")}
     </Notice>
   ) : status.loaded_by_optiscaler === false ? (
-    <Notice tone="warn" title="OptiScaler did not load it">
-      OptiScaler searched its plugins folder this run and did not load the module. Check that
-      it is still in <Mono>plugins/</Mono> next to OptiScaler.
+    <Notice tone="warn" title={t("OptiScaler did not load it")}>
+      {t("OptiScaler searched its plugins folder this run and did not load the module. Check that")}{t(" ")}
+      {t("it is still in")} <Mono>plugins/</Mono>{t(" next to OptiScaler.")}
     </Notice>
   ) : null;
 
   const body = chain ? (
     chain
   ) : status.attached ? (
-    <Notice tone="success" title="Connected to the running game">
-      Frame generation
-      {status.can_switch_upscaler ? " and the upscaler apply" : " applies"} immediately.
-      {status.can_switch_upscaler ? "" : ` ${upscalerBlockedReason(status)}`}
+    <Notice tone="success" title={t("Connected to the running game")}>
+      {t("Frame generation")}
+      {status.can_switch_upscaler ? t(" and the upscaler apply") : t(" applies")}{t(" immediately.")}
+      {status.can_switch_upscaler ? "" : t(" {0}", [upscalerBlockedReason(status)])}
     </Notice>
   ) : status.state === "failed" ? (
-    <Notice tone="warn" title="Loaded, but could not attach">
-      {status.error || "It could not locate OptiScaler's settings in memory."} This usually
-      means the game is running a different OptiScaler build than the one bundled here.
-      Everything still works through a restart.
+    <Notice tone="warn" title={t("Loaded, but could not attach")}>
+      {status.error || t("It could not locate OptiScaler's settings in memory.")}{t(" This usually")}
+      {t("means the game is running a different OptiScaler build than the one bundled here.")}{t(" ")}
+      {t("Everything still works through a restart.")}
     </Notice>
   ) : (
-    <Notice tone="info" title="Installed, waiting for the game">
-      It reports in a few seconds after the game starts.
-      {status.state !== "absent" ? ` Last state: ${status.state}.` : ""}
-      {status.loaded_by_optiscaler ? " OptiScaler's log says it was loaded." : ""}
+    <Notice tone="info" title={t("Installed, waiting for the game")}>
+      {t("It reports in a few seconds after the game starts.")}
+      {status.state !== "absent" ? t(" Last state: {0}.", [status.state]) : ""}
+      {status.loaded_by_optiscaler ? t(" OptiScaler's log says it was loaded.") : ""}
     </Notice>
   );
 
   return (
-    <PanelSection title="Live in-game control">
+    <PanelSection title={t("Live in-game control")}>
       <PanelSectionRow>{body}</PanelSectionRow>
 
       <Measurements status={status} />
 
       {/* The plugin derives its own folder from where OptiScaler loaded it. If
-          that ever disagrees with the folder being managed, it is writing where
+          {t("that ever disagrees with the folder being managed, it is writing where")}
           nothing is reading — which is exactly how it failed silently before. */}
       {status.dir_matches === false ? (
         <PanelSectionRow>
-          <Notice tone="warn" title="Reporting from a different folder">
-            The in-game plugin is writing to <Mono>{status.dir}</Mono>, which is not this
-            game's OptiScaler folder. Reinstall live control below.
+          <Notice tone="warn" title={t("Reporting from a different folder")}>
+            {t("The in-game plugin is writing to")} <Mono>{status.dir}</Mono>{t(", which is not this")}{t(" ")}
+            {t("game's OptiScaler folder. Reinstall live control below.")}
           </Notice>
         </PanelSectionRow>
       ) : null}
 
       {/* The plugin ships an ASI; each game holds its own copy of it, taken at
           set-up time. Updating the plugin does not update those, so a game can
-          be attached and answering while missing everything added since — which
-          reads as the new feature not existing rather than as an old plugin.
-          The copy is deliberately not offered while the game is running: the
-          DLL is mapped into it, and truncating a mapped file is how you take
+          {t("be attached and answering while missing everything added since — which")}{t(" ")}
+          {t("reads as the new feature not existing rather than as an old plugin.")}{t(" ")}
+          {t("The copy is deliberately not offered while the game is running: the")}{t(" ")}
+          {t("DLL is mapped into it, and truncating a mapped file is how you take")}
           the game down with you. */}
       {status.asi_current === false ? (
         <PanelSectionRow>
-          <Notice tone="warn" title="The in-game plugin is out of date">
-            This game has an older build of the live-control plugin than the one shipped here.
-            It still works, but anything added since is missing — including the rendered frame
-            rate and the FSR version list.
+          <Notice tone="warn" title={t("The in-game plugin is out of date")}>
+            {t("This game has an older build of the live-control plugin than the one shipped here.")}{t(" ")}
+            {t("It still works, but anything added since is missing — including the rendered frame")}{t(" ")}
+            {t("rate and the FSR version list.")}
             {status.attached
-              ? " Close the game, then reinstall live control here."
-              : " Reinstall live control below."}
+              ? t(" Close the game, then reinstall live control here.")
+              : t(" Reinstall live control below.")}
           </Notice>
         </PanelSectionRow>
       ) : null}
 
       {optiMismatch !== null ? (
         <PanelSectionRow>
-          <Notice tone="warn" title="This game runs a different OptiScaler build">
+          <Notice tone="warn" title={t("This game runs a different OptiScaler build")}>
             {optiMismatch}
             {" The live-control plugin mirrors OptiScaler memory layout for the build bundled here, so with another build it loads but cannot attach -- settings stay restart-only. Reinstall OptiScaler itself -- the Reinstall button in the OptiScaler section at the top of this page, not Reinstall live control below -- and live control will work."}
           </Notice>
@@ -290,7 +290,7 @@ export function LivePanel({ targetDir, status, onChanged }: Props) {
               }
             }}
           >
-            {status.asi_installed ? "Reinstall live control" : "Add live control"}
+            {status.asi_installed ? t("Reinstall live control") : t("Add live control")}
           </ButtonItem>
         </PanelSectionRow>
       ) : null}
@@ -308,14 +308,14 @@ export function LivePanel({ targetDir, status, onChanged }: Props) {
                 // A build the memory mirror does not know is the one thing a
                 // reinstall of the bundled OptiScaler fixes; say so in the open.
                 setOptiMismatch(report.opti_version_matches === false
-                  ? (report.opti_banner ?? "unknown build")
+                  ? (report.opti_banner ?? t("unknown build"))
                   : null);
               } finally {
                 setBusy(false);
               }
             }}
           >
-            {log ? "Refresh diagnostics" : "Show diagnostics"}
+            {log ? t("Refresh diagnostics") : t("Show diagnostics")}
           </ButtonItem>
         </PanelSectionRow>
       ) : null}
@@ -332,15 +332,15 @@ export function LivePanel({ targetDir, status, onChanged }: Props) {
               window.setTimeout(() => setCopied(false), 1500);
             }}
           >
-            {copied ? "Copied to clipboard" : "Copy diagnostics"}
+            {copied ? t("Copied to clipboard") : t("Copy diagnostics")}
           </ButtonItem>
         </PanelSectionRow>
       ) : null}
 
       {/* Xodus Nexus runs encrypted games out of a temporary chain view -- the
-          directory the game's executable actually starts from. The backend is
-          closed, so whether the files this plugin installed were linked into
-          that view can only be read, not assumed. Run it while the game is
+          {t("directory the game's executable actually starts from. The backend is")}{t(" ")}
+          {t("closed, so whether the files this plugin installed were linked into")}{t(" ")}
+          {t("that view can only be read, not assumed. Run it while the game is")}
           running; a view stops existing when the launch ends. */}
       <PanelSectionRow>
         <ButtonItem
@@ -355,13 +355,13 @@ export function LivePanel({ targetDir, status, onChanged }: Props) {
             }
           }}
         >
-          {probe ? "Re-check Xodus launch views" : "Check Xodus launch views"}
+          {probe ? t("Re-check Xodus launch views") : t("Check Xodus launch views")}
         </ButtonItem>
       </PanelSectionRow>
 
       {probe ? (
         <PanelSectionRow>
-          <Field label="Xodus launch views" bottomSeparator="none">
+          <Field label={t("Xodus launch views")} bottomSeparator="none">
             <div style={{ fontSize: "11px", opacity: 0.8 }}>
               <XodusProbeResult probe={probe} />
             </div>
@@ -371,10 +371,10 @@ export function LivePanel({ targetDir, status, onChanged }: Props) {
 
       {log ? (
         <PanelSectionRow>
-          <Field label="Plugin log" bottomSeparator="none">
+          <Field label={t("Plugin log")} bottomSeparator="none">
             <div style={{ fontSize: "11px", opacity: 0.8, maxHeight: "160px", overflowY: "auto" }}>
               {log.length === 0 ? (
-                <div>No log yet — it is written the first time the game runs.</div>
+                <div>{t("No log yet — it is written the first time the game runs.")}</div>
               ) : (
                 log.map((line, index) => <div key={index}>{line}</div>)
               )}

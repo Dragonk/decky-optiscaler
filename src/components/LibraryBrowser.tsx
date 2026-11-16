@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { addCustomLibrary, listLibraries, removeCustomLibrary } from "../api";
 import type { Library } from "../types";
 import { Centered, Mono, Notice, Pill, RowButton } from "./Common";
+import { t } from "../i18n";
 
 /**
  * `FileSelectionType.FOLDER`. Spelled out rather than imported: it is a
@@ -43,10 +44,10 @@ export function LibraryBrowser() {
       if (!picked?.path) return;
       const result = await addCustomLibrary(picked.path);
       if (result.ok) {
-        toaster.toast({ title: "Library added", body: picked.path });
+        toaster.toast({ title: t("Library added"), body: picked.path });
         await loadLibraries();
       } else {
-        toaster.toast({ title: "Could not add", body: String(result.error) });
+        toaster.toast({ title: t("Could not add"), body: String(result.error) });
       }
     } catch {
       /* the picker was dismissed */
@@ -57,13 +58,13 @@ export function LibraryBrowser() {
 
   return (
     <>
-      <PanelSection title="Game Libraries">
+      <PanelSection title={t("Game Libraries")}>
         {libraries === null ? (
-          <Centered>Looking for Steam libraries…</Centered>
+          <Centered>{t("Looking for Steam libraries…")}</Centered>
         ) : libraries.length === 0 ? (
           <PanelSectionRow>
-            <Notice tone="warn" title="No libraries found">
-              No Steam library folders were detected. Add a folder manually below.
+            <Notice tone="warn" title={t("No libraries found")}>
+              {t("No Steam library folders were detected. Add a folder manually below.")}
             </Notice>
           </PanelSectionRow>
         ) : (
@@ -72,11 +73,11 @@ export function LibraryBrowser() {
               key={library.path}
               label={library.name}
               description={
-                library.available ? <Mono>{library.path}</Mono> : "Folder is missing right now"
+                library.available ? <Mono>{library.path}</Mono> : t("Folder is missing right now")
               }
               right={
                 <span>
-                  {library.source === "custom" ? <Pill>custom</Pill> : null}
+                  {library.source === "custom" ? <Pill>{t("custom")}</Pill> : null}
                   <Pill>{library.game_count}</Pill>
                 </span>
               }
@@ -87,15 +88,15 @@ export function LibraryBrowser() {
         )}
       </PanelSection>
 
-      <PanelSection title="Custom Folders">
+      <PanelSection title={t("Custom Folders")}>
         <PanelSectionRow>
           <ButtonItem layout="below" disabled={busy} onClick={() => void addFolder()}>
-            Add a games folder
+            {t("Add a games folder")}
           </ButtonItem>
         </PanelSectionRow>
         <PanelSectionRow>
           <Notice tone="info">
-            Each subfolder of the folder you pick is treated as one game.
+            {t("Each subfolder of the folder you pick is treated as one game.")}
           </Notice>
         </PanelSectionRow>
         {(libraries ?? [])

@@ -9,6 +9,7 @@
 import type { ConfigValues, GpuInfo, LiveStatus, OptionChange } from "../types";
 import { UPSCALER_LABELS } from "./labels";
 import { AUTO, isAuto } from "./values";
+import { t } from "../i18n";
 
 export interface Preset {
   id: string;
@@ -89,8 +90,8 @@ function upscalerPreset(
 export const UPSCALER_PRESETS: Preset[] = [
   {
     id: "auto",
-    label: "Auto (leave the game alone)",
-    description: "OptiScaler picks its own default for each API.",
+    label: t("Auto (leave the game alone)"),
+    description: t("OptiScaler picks its own default for each API."),
     changes: [
       change("Upscalers", "Dx12Upscaler", AUTO),
       change("Upscalers", "Dx11Upscaler", AUTO),
@@ -106,9 +107,9 @@ export const UPSCALER_PRESETS: Preset[] = [
     // also what this entry has to recognise. Listed here so the panel can show
     // which preset the folder is on and offer it back.
     id: "fsr4-int8",
-    label: "FSR 4 Lite — Steam Deck",
+    label: t("FSR 4 Lite — Steam Deck"),
     description:
-      "INT8 Lite model, read from the bundled Vulkan driver DLL (amdvkffx64). "
+      t("INT8 Lite model, read from the bundled Vulkan driver DLL (amdvkffx64). ")
       + "Runs on any GPU and needs no download.",
     changes: [
       change("Upscalers", "Dx12Upscaler", "ffx"),
@@ -131,32 +132,32 @@ export const UPSCALER_PRESETS: Preset[] = [
   },
   upscalerPreset(
     "fsr4",
-    "FSR 4",
-    "OptiScaler's FidelityFX backend with FSR 4 turned on. Needs an RDNA 3 or RDNA 4 GPU.",
+    t("FSR 4"),
+    t("OptiScaler's FidelityFX backend with FSR 4 turned on. Needs an RDNA 3 or RDNA 4 GPU."),
     "ffx", "ffx_12", "ffx_12", "auto"
   ),
   upscalerPreset(
     "fsr31",
-    "FSR 3.X",
-    "The same backend running FSR 3.1. Works on any GPU — the safe choice on a Steam Deck.",
+    t("FSR 3.X"),
+    t("The same backend running FSR 3.1. Works on any GPU — the safe choice on a Steam Deck."),
     "ffx", "fsr31", "ffx", "off"
   ),
   upscalerPreset(
     "fsr22",
-    "FSR 2.2.1",
-    "Older FSR, most compatible.",
+    t("FSR 2.2.1"),
+    t("Older FSR, most compatible."),
     "fsr22", "fsr22", "fsr22"
   ),
   upscalerPreset(
     "xess",
     "XeSS",
-    "Intel's upscaler. Often the best image quality on AMD hardware.",
+    t("Intel's upscaler. Often the best image quality on AMD hardware."),
     "xess", "xess_12", "xess"
   ),
   upscalerPreset(
     "dlss",
     "DLSS",
-    "Nvidia only — needs a real DLSS-capable GPU.",
+    t("Nvidia only — needs a real DLSS-capable GPU."),
     "dlss", "dlss", "dlss"
   ),
 ];
@@ -192,39 +193,39 @@ function fgPreset(
 export const FG_PRESETS: Preset[] = [
   fgPreset(
     "upscaler",
-    "Upscaler (FSR FG)",
-    "FG Input “Upscaler” into FG Output “FSR FG”. For games without their own frame generation — takes motion vectors from OptiScaler's upscaler.",
+    t("Upscaler (FSR FG)"),
+    t("FG Input “Upscaler” into FG Output “FSR FG”. For games without their own frame generation — takes motion vectors from OptiScaler's upscaler."),
     "upscaler", "fsrfg"
   ),
   fgPreset(
     "fsrfg",
-    "FSR FG",
-    "FG Input “FSR 3.1 FG” into FG Output “FSR FG”. Only for games that already call FidelityFX frame generation themselves.",
+    t("FSR FG"),
+    t("FG Input “FSR 3.1 FG” into FG Output “FSR FG”. Only for games that already call FidelityFX frame generation themselves."),
     "fsrfg", "fsrfg"
   ),
   fgPreset(
     "xessfg",
-    "XeSS FG (game's own)",
-    "FG Input “XeFG” into FG Output “FSR FG”. For games that already offer XeSS frame generation in their own settings — switch the game to DX12, turn its XeSS FG on, then pick this and restart.",
+    t("XeSS FG (game's own)"),
+    t("FG Input “XeFG” into FG Output “FSR FG”. For games that already offer XeSS frame generation in their own settings — switch the game to DX12, turn its XeSS FG on, then pick this and restart."),
     "xefg", "fsrfg"
   ),
   fgPreset(
     "xefg",
     "XeFG",
-    "FG Input “FSR 3.1 FG” into FG Output “XeFG”. Supports 3X and 4X as well as 2X.",
+    t("FG Input “FSR 3.1 FG” into FG Output “XeFG”. Supports 3X and 4X as well as 2X."),
     "fsrfg", "xefg"
   ),
   fgPreset(
     "nukems",
-    "FSR3-FG via Nukem's",
-    "FG Input “Nvngx FG” with the Nukems replacement. Uses the game's own DLSS-FG path — only for games that have it.",
+    t("FSR3-FG via Nukem's"),
+    t("FG Input “Nvngx FG” with the Nukems replacement. Uses the game's own DLSS-FG path — only for games that have it."),
     "nvngxfg", "nofg",
     [change("FrameGen", "FGNvngxReplacement", "Nukems")]
   ),
   fgPreset(
     "dlssg",
-    "DLSSG via Streamline",
-    "FG Input “DLSSG via Streamline” into FG Output “FSR FG”. Only for games built on Streamline v2.",
+    t("DLSSG via Streamline"),
+    t("FG Input “DLSSG via Streamline” into FG Output “FSR FG”. Only for games built on Streamline v2."),
     "dlssg", "fsrfg"
   ),
 ];
@@ -425,7 +426,7 @@ export function liveUpscalerLabel(live: LiveStatus | null | undefined): string |
   const versions = live?.ffx_upscaler_versions ?? [];
   const index = live?.ffx_upscaler_index;
   if (isFfxBackend(backend) && typeof index === "number" && versions[index]) {
-    return `FSR ${versions[index]}`;
+    return t("FSR {0}", [versions[index]]);
   }
   return UPSCALER_LABELS[backend] ?? backend;
 }

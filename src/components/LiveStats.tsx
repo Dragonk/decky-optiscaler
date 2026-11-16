@@ -3,6 +3,7 @@ import { liveFrameRates, liveUpscalerLabel } from "../config/basic";
 import { UPSCALER_LABELS } from "../config/labels";
 import type { LiveStatus } from "../types";
 import { KeyValue } from "./Common";
+import { t } from "../i18n";
 
 /**
  * What the game is doing right now, read out of OptiScaler itself.
@@ -104,9 +105,9 @@ export function LiveTiles({ live, fgSub }: { live: LiveStatus | null; fgSub?: st
     <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", padding: "2px 0 4px" }}>
       {rates ? (
         <>
-          <Tile label="base fps" value={rate(rates.base)} grow={0.7} min={76} />
+          <Tile label={t("base fps")} value={rate(rates.base)} grow={0.7} min={76} />
           <Tile
-            label="with fg"
+            label={t("with fg")}
             value={rate(rates.total)}
             color={rates.generating ? "#7fd08a" : undefined}
             grow={0.7}
@@ -114,18 +115,18 @@ export function LiveTiles({ live, fgSub }: { live: LiveStatus | null; fgSub?: st
           />
         </>
       ) : (
-        <Tile label="fps" value={rate(live.fps)} grow={0.7} min={76} />
+        <Tile label={t("fps")} value={rate(live.fps)} grow={0.7} min={76} />
       )}
       <Tile
-        label="frame gen"
+        label={t("frame gen")}
         value={fg}
         // Frame generation on and not generating is the state that otherwise
         // shows up as two identical frame rates and no reason for them.
         sub={
           rates && rates.base === null
-            ? "no reading"
+            ? t("no reading")
             : rates && !rates.generating
-              ? "idle"
+              ? t("idle")
               : live.fg_enabled
                 ? fgSub
                 : undefined
@@ -134,7 +135,7 @@ export function LiveTiles({ live, fgSub }: { live: LiveStatus | null; fgSub?: st
         grow={0.9}
         min={80}
       />
-      <Tile label="upscaler" value={upscaler ?? "—"} grow={1.4} min={100} />
+      <Tile label={t("upscaler")} value={upscaler ?? "—"} grow={1.4} min={100} />
     </div>
   );
 }
@@ -142,7 +143,7 @@ export function LiveTiles({ live, fgSub }: { live: LiveStatus | null; fgSub?: st
 export function LiveStats({ live }: { live: LiveStatus | null }) {
   if (!live?.attached) return null;
 
-  const upscalerName = liveUpscalerLabel(live) ?? "unknown";
+  const upscalerName = liveUpscalerLabel(live) ?? t("unknown");
   // A status file written by an older build of the in-game plugin has none of
   // these fields, so every one of them is treated as optional.
   const rates = liveFrameRates(live);
@@ -151,32 +152,32 @@ export function LiveStats({ live }: { live: LiveStatus | null }) {
   const fps = rates?.total ?? (typeof live.fps === "number" ? live.fps : null);
 
   return (
-    <PanelSection title="In-game now">
+    <PanelSection title={t("In-game now")}>
       <PanelSectionRow>
         <div style={{ padding: "2px 0" }}>
           <KeyValue
-            label={rates ? "Frame rate, with FG" : "Frame rate"}
-            value={fps === null || fps <= 0 ? "measuring…" : <b>{fps.toFixed(1)} fps</b>}
+            label={rates ? t("Frame rate, with FG") : t("Frame rate")}
+            value={fps === null || fps <= 0 ? t("measuring…") : <b>{fps.toFixed(1)} fps</b>}
           />
           {rates ? (
             <KeyValue
-              label="Rendered"
+              label={t("Rendered")}
               value={
                 rates.base === null ? (
-                  "not reported by the in-game plugin"
+                  t("not reported by the in-game plugin")
                 ) : (
                   <>
                     <b>{rates.base.toFixed(1)} fps</b>
-                    {rates.generating ? "" : " (no frames being generated)"}
+                    {rates.generating ? "" : t(" (no frames being generated)")}
                   </>
                 )
               }
             />
           ) : null}
-          <KeyValue label="Upscaler" value={upscalerName} />
+          <KeyValue label={t("Upscaler")} value={upscalerName} />
           {live.pending_backend ? (
             <KeyValue
-              label="Switching to"
+              label={t("Switching to")}
               value={UPSCALER_LABELS[live.pending_backend] ?? live.pending_backend}
             />
           ) : null}
