@@ -14,6 +14,10 @@ OptiScaler v10.0.0-pre1 (nightly 2026-11-04) is bundled, together with the Fidel
 `amd_fidelityfx_upscaler_vk.dll`, carrying the FSR 4 and FSR 4 INT8-Lite models), so
 installing works offline and every game gets the same build.
 
+This repository is a fork of Daniel Camilo's
+[decky-optiscaler](https://github.com/danielcamilo1/decky-optiscaler), continued independently
+for the Xbox Ally X.
+
 > **Unofficial.** I am an independent developer with no connection to the OptiScaler project.
 > This plugin is not made, endorsed or supported by them — it bundles their release and drives
 > it from the Steam Deck UI. Please report problems with the plugin
@@ -106,7 +110,7 @@ FSR version it ended up with — above the controls that change them.
 ## Installing
 
 Grab `Decky-OptiScaler-v*.zip` from the
-[latest release](https://github.com/danielcamilo1/decky-optiscaler/releases/latest), then either:
+[latest release](https://github.com/Dragonk/decky-optiscaler/releases/latest), then either:
 
 - In Game Mode, open Decky's settings, turn on **Developer mode**, and use
   **Install Plugin from URL** with the zip's download link; or
@@ -189,20 +193,14 @@ HARNESS=run.tsx node testharness/build-and-run.mjs    # renders the UI headlessl
 HARNESS=all-options.tsx node testharness/build-and-run.mjs
 ```
 
-## Support
-
-This plugin is free and open source, and it will stay that way. If it got a game running better
-on your Deck and you feel like saying thanks, you can buy me a coffee — it is genuinely
-appreciated and it keeps the updates coming ☕
-
-[![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/danielcamilo)
-
 ## Credits
 
 This is an unofficial, independently developed plugin. It is not affiliated with, endorsed by or
 supported by the OptiScaler project or any of the projects below; all it does is package and
 drive their work.
 
+- [decky-optiscaler](https://github.com/danielcamilo1/decky-optiscaler) — Daniel Camilo's
+  original plugin this fork builds on.
 - [OptiScaler](https://github.com/optiscaler/OptiScaler) and its wiki contributors.
 - [Decky Framegen](https://github.com/xXJSONDeruloXx/Decky-Framegen) — reference for how
   OptiScaler is deployed into a game folder on Linux.
@@ -211,4 +209,7 @@ drive their work.
 
 ## AI disclosure
 
-This plugin was built with heavy use of AI: Claude Opus 5 was the model mainly used for its development. Every design decision, review and manual testing runs were mine, and everything here has been run on an Xbox Ally X running Bazzite.
+The original plugin was built with heavy use of AI, with Claude Opus 5 as the model mainly
+used for its development. Development of this fork also leans on AI, mainly through
+Mistral Vibe (Mistral AI). Design decisions, review and manual testing for this fork are
+mine, and everything here has been run on an Xbox Ally X running SteamOS.
